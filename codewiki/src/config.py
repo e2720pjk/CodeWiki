@@ -51,6 +51,12 @@ class Config:
     main_model: str
     cluster_model: str
     fallback_model: str = FALLBACK_MODEL_1
+    # Token configuration (keeping defaults as requested)
+    max_tokens_per_module: int = MAX_TOKEN_PER_MODULE
+    max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE
+    # Parallel processing configuration
+    enable_parallel_processing: bool = True
+    concurrency_limit: int = 5
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -80,7 +86,11 @@ class Config:
         llm_api_key: str,
         main_model: str,
         cluster_model: str,
-        fallback_model: str = FALLBACK_MODEL_1
+        fallback_model: str = FALLBACK_MODEL_1,
+        max_tokens_per_module: int = MAX_TOKEN_PER_MODULE,
+        max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE,
+        enable_parallel_processing: bool = True,
+        concurrency_limit: int = 5
     ) -> 'Config':
         """
         Create configuration for CLI context.
@@ -93,6 +103,10 @@ class Config:
             main_model: Primary model
             cluster_model: Clustering model
             fallback_model: Fallback model
+            max_tokens_per_module: Maximum tokens per module
+            max_tokens_per_leaf: Maximum tokens per leaf module
+            enable_parallel_processing: Enable parallel processing
+            concurrency_limit: Maximum concurrent API calls
             
         Returns:
             Config instance
@@ -110,5 +124,9 @@ class Config:
             llm_api_key=llm_api_key,
             main_model=main_model,
             cluster_model=cluster_model,
-            fallback_model=fallback_model
+            fallback_model=fallback_model,
+            max_tokens_per_module=max_tokens_per_module,
+            max_tokens_per_leaf=max_tokens_per_leaf,
+            enable_parallel_processing=enable_parallel_processing,
+            concurrency_limit=concurrency_limit
         )
