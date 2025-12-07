@@ -24,6 +24,7 @@ class PerformanceMetrics:
     total_api_time: float = 0.0
     parallel_efficiency: float = 0.0
     concurrency_limit: int = 1
+    total_module_processing_time: float = 0.0
     
     def start_timing(self) -> None:
         """Start timing."""
@@ -151,6 +152,9 @@ class PerformanceTracker:
         """Record module processing result."""
         if self.metrics is None:
             return
+        
+        # Record processing time
+        self.metrics.total_module_processing_time += processing_time
         
         if is_success:
             self.metrics.record_module_success()

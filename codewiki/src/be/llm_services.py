@@ -20,8 +20,6 @@ def get_performance_tracker():
 
 logger = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 
 def create_main_model(config: Config) -> OpenAIModel:
     """Create the main LLM model from configuration."""

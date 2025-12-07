@@ -182,25 +182,17 @@ class DocumentationGenerator:
                     performance_tracker.record_module_processing(False, 0)
                     return module_key, False
         
-        # Create tasks for all leaf modules
-        tasks = [
-            process_with_semaphore(module_path, module_name) 
-            for module_path, module_name in leaf_modules
-        ]
-        
         # Process all modules in parallel with progress tracking
         with tqdm(total=len(leaf_modules), desc="Processing leaf modules") as pbar:
-            async def process_with_progress(module_path, module_name):
+            async def process_with_progress(module_path: List[str], module_name: str):
                 result = await process_with_semaphore(module_path, module_name)
                 pbar.update(1)
                 return result
             
-            progress_tasks = [
-                process_with_progress(module_path, module_name) 
-                for module_path, module_name in leaf_modules
-            ]
-            
-            results = await asyncio.gather(*progress_tasks, return_exceptions=True)
+            results = await asyncio.gather(
+                *[process_with_progress(mp, mn) for mp, mn in leaf_modules],
+                return_exceptions=True
+            )
         
         # Check results and handle failures
         failed_modules = []
