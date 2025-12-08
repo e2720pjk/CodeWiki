@@ -9,6 +9,7 @@ import re
 
 from codewiki.src.be.dependency_analyzer.analysis.analysis_service import AnalysisService
 from codewiki.src.be.dependency_analyzer.models.core import Node
+from codewiki.src.config import Config
 
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ logger.setLevel(logging.DEBUG)
 class DependencyParser:
     """Parser for extracting code components from multi-language repositories."""
     
-    def __init__(self, repo_path: str, config=None):
+    def __init__(self, repo_path: str, config: Optional[Config] = None):
         self.repo_path = os.path.abspath(repo_path)
         self.components: Dict[str, Node] = {}
         self.modules: Set[str] = set()
@@ -27,7 +28,7 @@ class DependencyParser:
         self.analysis_service = AnalysisService()
         self.config = config
 
-    def parse_repository(self, filtered_folders: List[str] = None) -> Dict[str, Node]:
+    def parse_repository(self, _filtered_folders: Optional[List[str]] = None) -> Dict[str, Node]:
         logger.debug(f"Parsing repository at {self.repo_path}")
         
         # Pass respect_gitignore option if available in config

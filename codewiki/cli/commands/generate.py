@@ -10,6 +10,7 @@ import click
 import time
 
 from codewiki.cli.config_manager import ConfigManager
+from codewiki.cli.models.config import Configuration
 from codewiki.cli.utils.errors import (
     ConfigurationError,
     RepositoryError,
@@ -84,7 +85,7 @@ from codewiki.cli.models.job import GenerationOptions
 )
 @click.pass_context
 def generate_command(
-    ctx,
+    _ctx,
     output: str,
     create_branch: bool,
     github_pages: bool,
@@ -150,6 +151,7 @@ def generate_command(
             )
         
         config = config_manager.get_config()
+        assert config is not None  # Should be true if is_configured() passed
         api_key = config_manager.get_api_key()
         
         logger.success("Configuration valid")
