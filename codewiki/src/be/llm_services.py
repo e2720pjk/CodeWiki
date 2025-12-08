@@ -18,6 +18,11 @@ def get_performance_tracker():
     from codewiki.src.be.performance_metrics import performance_tracker
     return performance_tracker
 
+# Import caching system
+def get_llm_cache():
+    from codewiki.src.be.caching import get_llm_cache
+    return get_llm_cache()
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,6 +164,13 @@ async def call_llm_async_with_retry(
     if max_tokens is None:
         max_tokens = getattr(config, 'max_tokens_per_module', 32768)
     
+    # Check cache first
+    if getattr(config, 'enable_llm_cache', True):
+        cached_response = get_llm_cache().get(prompt, model, max_tokens)
+        if cached_response is not None:
+            logger.debug(f"Cache hit for LLM prompt: {model}")
+            return cached_response
+    
     client = await client_manager.get_client(config)
     last_exception = None
     
@@ -172,11 +184,17 @@ async def call_llm_async_with_retry(
                 max_tokens=max_tokens
             )
             api_time = asyncio.get_event_loop().time() - start_time
+            response_content = response.choices[0].message.content
             
             # Record successful API call
             get_performance_tracker().record_api_call(api_time)
             
-            return response.choices[0].message.content
+            # Cache successful response
+            if getattr(config, 'enable_llm_cache', True):
+                from codewiki.src.be.caching import cache_llm_response
+                cache_llm_response(prompt, model, response_content, max_tokens)
+            
+            return response_content
             
         except Exception as e:
             last_exception = e

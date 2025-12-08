@@ -57,6 +57,8 @@ class Config:
     # Parallel processing configuration
     enable_parallel_processing: bool = True
     concurrency_limit: int = 5
+    # LLM caching configuration
+    enable_llm_cache: bool = True
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -74,7 +76,10 @@ class Config:
             llm_api_key=LLM_API_KEY,
             main_model=MAIN_MODEL,
             cluster_model=CLUSTER_MODEL,
-            fallback_model=FALLBACK_MODEL_1
+            fallback_model=FALLBACK_MODEL_1,
+            enable_parallel_processing=True,
+            concurrency_limit=5,
+            enable_llm_cache=True
         )
     
     @classmethod

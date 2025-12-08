@@ -72,6 +72,10 @@ class Configuration:
             main_model=data.get('main_model', ''),
             cluster_model=data.get('cluster_model', ''),
             default_output=data.get('default_output', 'docs'),
+            max_tokens_per_module=data.get('max_tokens_per_module', 36369),
+            max_tokens_per_leaf=data.get('max_tokens_per_leaf', 16000),
+            enable_parallel_processing=data.get('enable_parallel_processing', True),
+            concurrency_limit=data.get('concurrency_limit', 5),
         )
     
     def is_complete(self) -> bool:
