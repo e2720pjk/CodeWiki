@@ -87,7 +87,9 @@ class ConfigManager:
         base_url: Optional[str] = None,
         main_model: Optional[str] = None,
         cluster_model: Optional[str] = None,
-        default_output: Optional[str] = None
+        default_output: Optional[str] = None,
+        enable_parallel_processing: Optional[bool] = None,
+        concurrency_limit: Optional[int] = None
     ):
         """
         Save configuration to file and keyring.
@@ -98,6 +100,8 @@ class ConfigManager:
             main_model: Primary model
             cluster_model: Clustering model
             default_output: Default output directory
+            enable_parallel_processing: Enable parallel processing of leaf modules
+            concurrency_limit: Maximum concurrent API calls (1-10)
         """
         # Ensure config directory exists
         try:
@@ -126,6 +130,10 @@ class ConfigManager:
             self._config.cluster_model = cluster_model
         if default_output is not None:
             self._config.default_output = default_output
+        if enable_parallel_processing is not None:
+            self._config.enable_parallel_processing = enable_parallel_processing
+        if concurrency_limit is not None:
+            self._config.concurrency_limit = concurrency_limit
         
         # Validate configuration
         self._config.validate()

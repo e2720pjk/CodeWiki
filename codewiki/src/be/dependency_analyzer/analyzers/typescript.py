@@ -10,6 +10,7 @@ from tree_sitter import Parser, Language
 import tree_sitter_typescript
 
 from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
 
@@ -24,19 +25,14 @@ class TreeSitterTSAnalyzer:
         
         self.top_level_nodes = {}
 
-        try:
-            language_capsule = tree_sitter_typescript.language_typescript()
-            self.ts_language = Language(language_capsule)
-            self.parser = Parser(self.ts_language)
-
-        except Exception as e:
-            logger.error(f"Failed to initialize TypeScript parser: {e}")
-            self.parser = None
-            self.ts_language = None
+        # Get thread-safe parser from pool
+        self.parser = get_thread_safe_parser('typescript')
+        if self.parser is None:
+            logger.error("TypeScript parser not available in thread-safe pool")
 
     def analyze(self) -> None:
         if self.parser is None:
-            logger.debug(f"Skipping {self.file_path} - parser initialization failed")
+            logger.debug(f"Skipping {self.file_path} - parser not available")
             return
 
         try:

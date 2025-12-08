@@ -37,7 +37,7 @@ class DependencyGraphBuilder:
             f"{sanitized_repo_name}_filtered_folders.json"
         )
 
-        parser = DependencyParser(self.config.repo_path)
+        parser = DependencyParser(self.config.repo_path, self.config)
 
         filtered_folders = None
         # if os.path.exists(filtered_folders_path):

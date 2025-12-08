@@ -18,12 +18,12 @@ logger.setLevel(logging.DEBUG)
 class DependencyParser:
     """Parser for extracting code components from multi-language repositories."""
     
-    def __init__(self, repo_path: str):
+    def __init__(self, repo_path: str, config=None):
         self.repo_path = os.path.abspath(repo_path)
         self.components: Dict[str, Node] = {}
         self.modules: Set[str] = set()
         
-        self.analysis_service = AnalysisService()
+        self.analysis_service = AnalysisService(config)
 
     def parse_repository(self, filtered_folders: List[str] = None) -> Dict[str, Node]:
         logger.debug(f"Parsing repository at {self.repo_path}")

@@ -27,11 +27,19 @@ class Configuration:
         main_model: Primary model for documentation generation
         cluster_model: Model for module clustering
         default_output: Default output directory
+        max_tokens_per_module: Maximum tokens per module (keeps default)
+        max_tokens_per_leaf: Maximum tokens per leaf module (keeps default)
+        enable_parallel_processing: Enable parallel processing
+        concurrency_limit: Maximum concurrent API calls
     """
     base_url: str
     main_model: str
     cluster_model: str
     default_output: str = "docs"
+    max_tokens_per_module: int = 36369  # Keep default as requested
+    max_tokens_per_leaf: int = 16000    # Keep default as requested
+    enable_parallel_processing: bool = True
+    concurrency_limit: int = 5
     
     def validate(self):
         """
@@ -64,6 +72,10 @@ class Configuration:
             main_model=data.get('main_model', ''),
             cluster_model=data.get('cluster_model', ''),
             default_output=data.get('default_output', 'docs'),
+            max_tokens_per_module=data.get('max_tokens_per_module', 36369),
+            max_tokens_per_leaf=data.get('max_tokens_per_leaf', 16000),
+            enable_parallel_processing=data.get('enable_parallel_processing', True),
+            concurrency_limit=data.get('concurrency_limit', 5),
         )
     
     def is_complete(self) -> bool:
@@ -97,6 +109,10 @@ class Configuration:
             llm_base_url=self.base_url,
             llm_api_key=api_key,
             main_model=self.main_model,
-            cluster_model=self.cluster_model
+            cluster_model=self.cluster_model,
+            max_tokens_per_module=self.max_tokens_per_module,
+            max_tokens_per_leaf=self.max_tokens_per_leaf,
+            enable_parallel_processing=self.enable_parallel_processing,
+            concurrency_limit=self.concurrency_limit
         )
 
