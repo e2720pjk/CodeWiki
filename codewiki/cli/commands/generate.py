@@ -59,6 +59,11 @@ from codewiki.cli.models.job import GenerationOptions
     is_flag=True,
     help="Show detailed progress and debug information",
 )
+@click.option(
+    "--respect-gitignore",
+    is_flag=True,
+    help="Respect .gitignore file patterns during analysis"
+)
 @click.pass_context
 def generate_command(
     ctx,
@@ -66,7 +71,8 @@ def generate_command(
     create_branch: bool,
     github_pages: bool,
     no_cache: bool,
-    verbose: bool
+    verbose: bool,
+    respect_gitignore: bool
 ):
     """
     Generate comprehensive documentation for a code repository.
@@ -190,7 +196,8 @@ def generate_command(
             create_branch=create_branch,
             github_pages=github_pages,
             no_cache=no_cache,
-            custom_output=output if output != "docs" else None
+            custom_output=output if output != "docs" else None,
+            respect_gitignore=respect_gitignore
         )
         
         # Create generator
@@ -204,7 +211,8 @@ def generate_command(
                 'api_key': api_key,
             },
             verbose=verbose,
-            generate_html=github_pages
+            generate_html=github_pages,
+            generation_options=generation_options
         )
         
         # Run generation

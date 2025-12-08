@@ -231,12 +231,18 @@ class AnalysisService:
         repo_dir: str,
         include_patterns: Optional[List[str]],
         exclude_patterns: Optional[List[str]],
+        respect_gitignore: bool = False,
     ) -> Dict[str, Any]:
         """Analyze repository file structure with filtering."""
         logger.debug(
-            f"Initializing RepoAnalyzer with include: {include_patterns}, exclude: {exclude_patterns}"
+            f"Initializing RepoAnalyzer with include: {include_patterns}, exclude: {exclude_patterns}, respect_gitignore: {respect_gitignore}"
         )
-        repo_analyzer = RepoAnalyzer(include_patterns, exclude_patterns)
+        repo_analyzer = RepoAnalyzer(
+            include_patterns=include_patterns, 
+            exclude_patterns=exclude_patterns,
+            respect_gitignore=respect_gitignore,
+            repo_path=repo_dir
+        )
         return repo_analyzer.analyze_repository_structure(repo_dir)
 
     def _read_readme_file(self, repo_dir: str) -> Optional[str]:
