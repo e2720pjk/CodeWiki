@@ -53,6 +53,10 @@ class Config:
     fallback_model: str = FALLBACK_MODEL_1
     # Analysis options
     respect_gitignore: bool = False
+    # File analysis limits
+    max_files: int = 100
+    max_entry_points: int = 5
+    max_connectivity_files: int = 10
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -83,7 +87,10 @@ class Config:
         main_model: str,
         cluster_model: str,
         fallback_model: str = FALLBACK_MODEL_1,
-        respect_gitignore: bool = False
+        respect_gitignore: bool = False,
+        max_files: int = 100,
+        max_entry_points: int = 5,
+        max_connectivity_files: int = 10
     ) -> 'Config':
         """
         Create configuration for CLI context.
@@ -96,6 +103,9 @@ class Config:
             main_model: Primary model
             cluster_model: Clustering model
             fallback_model: Fallback model
+            max_files: Maximum number of files to analyze
+            max_entry_points: Maximum fallback entry points
+            max_connectivity_files: Maximum fallback connectivity files
             
         Returns:
             Config instance
@@ -114,5 +124,8 @@ class Config:
             main_model=main_model,
             cluster_model=cluster_model,
             fallback_model=fallback_model,
-            respect_gitignore=respect_gitignore
+            respect_gitignore=respect_gitignore,
+            max_files=max_files,
+            max_entry_points=max_entry_points,
+            max_connectivity_files=max_connectivity_files
         )

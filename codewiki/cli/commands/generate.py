@@ -64,6 +64,24 @@ from codewiki.cli.models.job import GenerationOptions
     is_flag=True,
     help="Respect .gitignore file patterns during analysis"
 )
+@click.option(
+    "--max-files",
+    type=int,
+    default=100,
+    help="Maximum number of files to analyze (default: 100)"
+)
+@click.option(
+    "--max-entry-points",
+    type=int,
+    default=5,
+    help="Maximum fallback entry points (default: 5)"
+)
+@click.option(
+    "--max-connectivity-files",
+    type=int,
+    default=10,
+    help="Maximum fallback connectivity files (default: 10)"
+)
 @click.pass_context
 def generate_command(
     ctx,
@@ -72,7 +90,10 @@ def generate_command(
     github_pages: bool,
     no_cache: bool,
     verbose: bool,
-    respect_gitignore: bool
+    respect_gitignore: bool,
+    max_files: int,
+    max_entry_points: int,
+    max_connectivity_files: int
 ):
     """
     Generate comprehensive documentation for a code repository.
@@ -93,6 +114,14 @@ def generate_command(
     \b
     # Force full regeneration
     $ codewiki generate --no-cache
+    
+    \b
+    # Analyze larger repository
+    $ codewiki generate --max-files 500
+    
+    \b
+    # Analyze small project with more entry points
+    $ codewiki generate --max-files 50 --max-entry-points 10
     """
     logger = create_logger(verbose=verbose)
     start_time = time.time()
@@ -197,7 +226,10 @@ def generate_command(
             github_pages=github_pages,
             no_cache=no_cache,
             custom_output=output if output != "docs" else None,
-            respect_gitignore=respect_gitignore
+            respect_gitignore=respect_gitignore,
+            max_files=max_files,
+            max_entry_points=max_entry_points,
+            max_connectivity_files=max_connectivity_files
         )
         
         # Create generator

@@ -25,6 +25,7 @@ class DependencyParser:
         self.config = config
         
         self.analysis_service = AnalysisService()
+        self.config = config
 
     def parse_repository(self, filtered_folders: List[str] = None) -> Dict[str, Node]:
         logger.debug(f"Parsing repository at {self.repo_path}")
@@ -41,20 +42,35 @@ class DependencyParser:
         call_graph_result = self.analysis_service._analyze_call_graph(
             structure_result["file_tree"], 
             self.repo_path
+        # Use file limits from config if available
+        max_files = getattr(self.config, 'max_files', 100) if self.config else 100
+        max_entry_points = getattr(self.config, 'max_entry_points', 5) if self.config else 5
+        max_connectivity_files = getattr(self.config, 'max_connectivity_files', 10) if self.config else 10
+        
+        # Use the public analyze_local_repository method with file limits
+        analysis_result = self.analysis_service.analyze_local_repository(
+            self.repo_path,
+            max_files=max_files,
+            max_entry_points=max_entry_points,
+            max_connectivity_files=max_connectivity_files
         )
         
-        self._build_components_from_analysis(call_graph_result)
+        self._build_components_from_analysis(analysis_result)
         
         logger.debug(f"Found {len(self.components)} components across {len(self.modules)} modules")
         return self.components
     
-    def _build_components_from_analysis(self, call_graph_result: Dict):
-        functions = call_graph_result.get("functions", [])
-        relationships = call_graph_result.get("relationships", [])
+    def _build_components_from_analysis(self, analysis_result: Dict):
+        # Extract functions and relationships from the new result format
+        functions = analysis_result.get("nodes", {})
+        relationships = analysis_result.get("relationships", [])
+        
+        # Convert functions dict to list format expected by the rest of the method
+        functions_list = list(functions.values()) if isinstance(functions, dict) else functions
         
         component_id_mapping = {}
         
-        for func_dict in functions:
+        for func_dict in functions_list:
             component_id = func_dict.get("id", "")
             if not component_id:
                 continue

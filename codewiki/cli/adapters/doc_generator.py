@@ -38,7 +38,7 @@ class CLIDocumentationGenerator:
         config: Dict[str, Any],
         verbose: bool = False,
         generate_html: bool = False,
-        generation_options: Optional[GenerationOptions] = None
+        generation_options: Optional['GenerationOptions'] = None
     ):
         """
         Initialize the CLI documentation generator.
@@ -55,7 +55,7 @@ class CLIDocumentationGenerator:
         self.config = config
         self.verbose = verbose
         self.generate_html = generate_html
-        self.generation_options = generation_options
+        self.generation_options = generation_options or GenerationOptions()
         self.progress_tracker = ProgressTracker(total_stages=5, verbose=verbose)
         self.job = DocumentationJob()
         
@@ -139,6 +139,10 @@ class CLIDocumentationGenerator:
                 main_model=self.config.get('main_model'),
                 cluster_model=self.config.get('cluster_model'),
                 respect_gitignore=self.generation_options.respect_gitignore if self.generation_options else False
+                cluster_model=self.config.get('cluster_model'),
+                max_files=self.generation_options.max_files,
+                max_entry_points=self.generation_options.max_entry_points,
+                max_connectivity_files=self.generation_options.max_connectivity_files
             )
             
             # Run backend documentation generation

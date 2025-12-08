@@ -50,7 +50,7 @@ class DependencyGraphBuilder:
         #     file_manager.save_json(filtered_folders, filtered_folders_path)
 
         # Parse repository
-        components = parser.parse_repository(filtered_folders)
+        components = parser.parse_repository(filtered_folders or [])
         
         # Save dependency graph
         parser.save_dependency_graph(dependency_graph_path)

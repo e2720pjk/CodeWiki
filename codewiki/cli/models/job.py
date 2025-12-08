@@ -26,6 +26,9 @@ class GenerationOptions:
     no_cache: bool = False
     custom_output: Optional[str] = None
     respect_gitignore: bool = False
+    max_files: int = 100
+    max_entry_points: int = 5
+    max_connectivity_files: int = 10
 
 
 @dataclass
