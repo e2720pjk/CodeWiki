@@ -51,6 +51,8 @@ class Config:
     main_model: str
     cluster_model: str
     fallback_model: str = FALLBACK_MODEL_1
+    # Analysis options
+    respect_gitignore: bool = False
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -80,7 +82,8 @@ class Config:
         llm_api_key: str,
         main_model: str,
         cluster_model: str,
-        fallback_model: str = FALLBACK_MODEL_1
+        fallback_model: str = FALLBACK_MODEL_1,
+        respect_gitignore: bool = False
     ) -> 'Config':
         """
         Create configuration for CLI context.
@@ -110,5 +113,6 @@ class Config:
             llm_api_key=llm_api_key,
             main_model=main_model,
             cluster_model=cluster_model,
-            fallback_model=fallback_model
+            fallback_model=fallback_model,
+            respect_gitignore=respect_gitignore
         )
