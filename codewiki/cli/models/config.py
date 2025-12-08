@@ -106,6 +106,9 @@ class Configuration:
             llm_base_url=self.base_url,
             llm_api_key=api_key,
             main_model=self.main_model,
-            cluster_model=self.cluster_model
+            cluster_model=self.cluster_model,
+            max_files=self.max_files,
+            max_entry_points=self.max_entry_points,
+            max_connectivity_files=self.max_connectivity_files
         )
 
