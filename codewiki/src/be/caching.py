@@ -124,12 +124,13 @@ class LLMPromptCache:
         Returns:
             Dictionary with cache statistics
         """
-        return {
-            "size": len(self._cache),
-            "max_size": self.max_size,
-            "utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0,
-            "keys": list(self._cache.keys())
-        }
+        with self._lock:
+            return {
+                "size": len(self._cache),
+                "max_size": self.max_size,
+                "utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0,
+                "keys": list(self._cache.keys())
+            }
 
 
 # Global cache instance
