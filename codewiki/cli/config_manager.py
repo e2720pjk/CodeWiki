@@ -100,6 +100,8 @@ class ConfigManager:
             main_model: Primary model
             cluster_model: Clustering model
             default_output: Default output directory
+            enable_parallel_processing: Enable parallel processing of leaf modules
+            concurrency_limit: Maximum concurrent API calls (1-10)
         """
         # Ensure config directory exists
         try:

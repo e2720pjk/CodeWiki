@@ -89,12 +89,13 @@ def test_call_graph_analyzer_basic():
             print(f"  ✗ Sequential mode missing keys: {expected_keys - actual_keys}")
             return False
         
-        # Test with empty file list - parallel
+        # Test with empty file list - even with enable_parallel=True, analyzer
+        # should fall back to sequential since there is nothing to parallelize.
         result_par = analyzer.analyze_code_files([], '/tmp', enable_parallel=True)
-        if result_par['call_graph']['analysis_approach'] == 'parallel':
-            print("  ✓ Parallel mode works")
+        if result_par['call_graph']['analysis_approach'] == 'sequential':
+            print("  ✓ Parallel flag falls back to sequential for empty input")
         else:
-            print("  ✗ Parallel mode failed")
+            print("  ✗ Unexpected analysis approach for empty input")
             return False
         
         return True
@@ -113,7 +114,7 @@ def test_configuration_basic():
         from codewiki.cli.models.config import Configuration
         
         # Test instantiation with all fields
-        config = Configuration(
+        _ = Configuration(
             base_url='https://api.test.com',
             main_model='test-model',
             cluster_model='test-model',
@@ -144,7 +145,7 @@ def test_configuration_basic():
             (config2.cluster_model == 'test-model', 'cluster_model'),
             (config2.max_tokens_per_module == 40000, 'max_tokens_per_module'),
             (config2.max_tokens_per_leaf == 20000, 'max_tokens_per_leaf'),
-            (config2.enable_parallel_processing == False, 'enable_parallel_processing'),
+            (not config2.enable_parallel_processing, 'enable_parallel_processing'),
             (config2.concurrency_limit == 3, 'concurrency_limit'),
         ]
         

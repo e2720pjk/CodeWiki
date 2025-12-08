@@ -77,7 +77,7 @@ class AnalysisService:
             logger.debug(f"Analyzing {len(code_files)} files")
             
             # Analyze files
-            enable_parallel = getattr(self.config, 'enable_parallel_analysis', True)
+            enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
             result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path, enable_parallel)
             
             return {
@@ -286,7 +286,7 @@ class AnalysisService:
         supported_files = self._filter_supported_languages(code_files)
         logger.debug(f"Analyzing {len(supported_files)} supported files.")
 
-        enable_parallel = getattr(self.config, 'enable_parallel_analysis', True)
+        enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
         result = self.call_graph_analyzer.analyze_code_files(supported_files, repo_dir, enable_parallel)
 
         result["call_graph"]["supported_languages"] = self._get_supported_languages()
