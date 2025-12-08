@@ -59,6 +59,24 @@ from codewiki.cli.models.job import GenerationOptions
     is_flag=True,
     help="Show detailed progress and debug information",
 )
+@click.option(
+    "--max-files",
+    type=int,
+    default=100,
+    help="Maximum number of files to analyze (default: 100)"
+)
+@click.option(
+    "--max-entry-points",
+    type=int,
+    default=5,
+    help="Maximum fallback entry points (default: 5)"
+)
+@click.option(
+    "--max-connectivity-files",
+    type=int,
+    default=10,
+    help="Maximum fallback connectivity files (default: 10)"
+)
 @click.pass_context
 def generate_command(
     ctx,
@@ -66,7 +84,10 @@ def generate_command(
     create_branch: bool,
     github_pages: bool,
     no_cache: bool,
-    verbose: bool
+    verbose: bool,
+    max_files: int,
+    max_entry_points: int,
+    max_connectivity_files: int
 ):
     """
     Generate comprehensive documentation for a code repository.
@@ -87,6 +108,14 @@ def generate_command(
     \b
     # Force full regeneration
     $ codewiki generate --no-cache
+    
+    \b
+    # Analyze larger repository
+    $ codewiki generate --max-files 500
+    
+    \b
+    # Analyze small project with more entry points
+    $ codewiki generate --max-files 50 --max-entry-points 10
     """
     logger = create_logger(verbose=verbose)
     start_time = time.time()
@@ -190,7 +219,10 @@ def generate_command(
             create_branch=create_branch,
             github_pages=github_pages,
             no_cache=no_cache,
-            custom_output=output if output != "docs" else None
+            custom_output=output if output != "docs" else None,
+            max_files=max_files,
+            max_entry_points=max_entry_points,
+            max_connectivity_files=max_connectivity_files
         )
         
         # Create generator
@@ -204,7 +236,8 @@ def generate_command(
                 'api_key': api_key,
             },
             verbose=verbose,
-            generate_html=github_pages
+            generate_html=github_pages,
+            generation_options=generation_options
         )
         
         # Run generation

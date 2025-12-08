@@ -37,10 +37,27 @@ class AnalysisService:
         self.call_graph_analyzer = CallGraphAnalyzer()
         self._temp_directories = []
 
+    def _validate_file_limits(self, max_files: int, max_entry_points: int, max_connectivity_files: int):
+        """Validate file limit parameters."""
+        if max_files <= 0:
+            raise ValueError("max_files must be positive")
+        if max_entry_points <= 0:
+            raise ValueError("max_entry_points must be positive")
+        if max_connectivity_files <= 0:
+            raise ValueError("max_connectivity_files must be positive")
+        if max_entry_points > max_files:
+            raise ValueError("max_entry_points cannot exceed max_files")
+        if max_connectivity_files > max_files:
+            raise ValueError("max_connectivity_files cannot exceed max_files")
+        if max_files > 10000:
+            raise ValueError("max_files cannot exceed 10000 to prevent OOM")
+
     def analyze_local_repository(
         self,
         repo_path: str,
         max_files: int = 100,
+        max_entry_points: int = 5,
+        max_connectivity_files: int = 10,
         languages: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
@@ -49,6 +66,8 @@ class AnalysisService:
         Args:
             repo_path: Path to local repository folder
             max_files: Maximum number of files to analyze
+            max_entry_points: Maximum fallback entry points
+            max_connectivity_files: Maximum fallback connectivity files
             languages: List of languages to include (e.g., ['python', 'javascript'])
             
         Returns:
@@ -56,6 +75,9 @@ class AnalysisService:
         """
         try:
             logger.debug(f"Analyzing local repository at {repo_path}")
+            
+            # Validate file limits
+            self._validate_file_limits(max_files, max_entry_points, max_connectivity_files)
             
             # Get repo analyzer to find files
             repo_analyzer = RepoAnalyzer()

@@ -27,11 +27,17 @@ class Configuration:
         main_model: Primary model for documentation generation
         cluster_model: Model for module clustering
         default_output: Default output directory
+        max_files: Maximum number of files to analyze
+        max_entry_points: Maximum fallback entry points
+        max_connectivity_files: Maximum fallback connectivity files
     """
     base_url: str
     main_model: str
     cluster_model: str
     default_output: str = "docs"
+    max_files: int = 100
+    max_entry_points: int = 5
+    max_connectivity_files: int = 10
     
     def validate(self):
         """
@@ -64,6 +70,9 @@ class Configuration:
             main_model=data.get('main_model', ''),
             cluster_model=data.get('cluster_model', ''),
             default_output=data.get('default_output', 'docs'),
+            max_files=data.get('max_files', 100),
+            max_entry_points=data.get('max_entry_points', 5),
+            max_connectivity_files=data.get('max_connectivity_files', 10),
         )
     
     def is_complete(self) -> bool:

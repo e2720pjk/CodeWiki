@@ -37,7 +37,7 @@ class DependencyGraphBuilder:
             f"{sanitized_repo_name}_filtered_folders.json"
         )
 
-        parser = DependencyParser(self.config.repo_path)
+        parser = DependencyParser(self.config.repo_path, self.config)
 
         filtered_folders = None
         # if os.path.exists(filtered_folders_path):
@@ -50,7 +50,7 @@ class DependencyGraphBuilder:
         #     file_manager.save_json(filtered_folders, filtered_folders_path)
 
         # Parse repository
-        components = parser.parse_repository(filtered_folders)
+        components = parser.parse_repository(filtered_folders or [])
         
         # Save dependency graph
         parser.save_dependency_graph(dependency_graph_path)

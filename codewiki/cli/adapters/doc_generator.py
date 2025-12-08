@@ -6,7 +6,7 @@ and provides CLI-specific functionality like progress reporting.
 """
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 import asyncio
 import os
@@ -15,7 +15,7 @@ import sys
 
 
 from codewiki.cli.utils.progress import ProgressTracker
-from codewiki.cli.models.job import DocumentationJob, LLMConfig
+from codewiki.cli.models.job import DocumentationJob, LLMConfig, GenerationOptions
 from codewiki.cli.utils.errors import APIError
 
 # Import backend modules
@@ -37,7 +37,8 @@ class CLIDocumentationGenerator:
         output_dir: Path,
         config: Dict[str, Any],
         verbose: bool = False,
-        generate_html: bool = False
+        generate_html: bool = False,
+        generation_options: Optional['GenerationOptions'] = None
     ):
         """
         Initialize the CLI documentation generator.
@@ -54,6 +55,7 @@ class CLIDocumentationGenerator:
         self.config = config
         self.verbose = verbose
         self.generate_html = generate_html
+        self.generation_options = generation_options or GenerationOptions()
         self.progress_tracker = ProgressTracker(total_stages=5, verbose=verbose)
         self.job = DocumentationJob()
         
@@ -135,7 +137,10 @@ class CLIDocumentationGenerator:
                 llm_base_url=self.config.get('base_url'),
                 llm_api_key=self.config.get('api_key'),
                 main_model=self.config.get('main_model'),
-                cluster_model=self.config.get('cluster_model')
+                cluster_model=self.config.get('cluster_model'),
+                max_files=self.generation_options.max_files,
+                max_entry_points=self.generation_options.max_entry_points,
+                max_connectivity_files=self.generation_options.max_connectivity_files
             )
             
             # Run backend documentation generation
