@@ -57,6 +57,14 @@ class Config:
     max_files: int = 100
     max_entry_points: int = 5
     max_connectivity_files: int = 10
+    # Token configuration (keeping defaults as requested)
+    max_tokens_per_module: int = MAX_TOKEN_PER_MODULE
+    max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE
+    # Parallel processing configuration
+    enable_parallel_processing: bool = True
+    concurrency_limit: int = 5
+    # LLM caching configuration
+    enable_llm_cache: bool = True
     
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Config':
@@ -74,7 +82,10 @@ class Config:
             llm_api_key=LLM_API_KEY,
             main_model=MAIN_MODEL,
             cluster_model=CLUSTER_MODEL,
-            fallback_model=FALLBACK_MODEL_1
+            fallback_model=FALLBACK_MODEL_1,
+            enable_parallel_processing=True,
+            concurrency_limit=5,
+            enable_llm_cache=True
         )
     
     @classmethod
@@ -91,6 +102,10 @@ class Config:
         max_files: int = 100,
         max_entry_points: int = 5,
         max_connectivity_files: int = 10
+        max_tokens_per_module: int = MAX_TOKEN_PER_MODULE,
+        max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE,
+        enable_parallel_processing: bool = True,
+        concurrency_limit: int = 5
     ) -> 'Config':
         """
         Create configuration for CLI context.
@@ -106,6 +121,10 @@ class Config:
             max_files: Maximum number of files to analyze
             max_entry_points: Maximum fallback entry points
             max_connectivity_files: Maximum fallback connectivity files
+            max_tokens_per_module: Maximum tokens per module
+            max_tokens_per_leaf: Maximum tokens per leaf module
+            enable_parallel_processing: Enable parallel processing
+            concurrency_limit: Maximum concurrent API calls
             
         Returns:
             Config instance
@@ -128,4 +147,8 @@ class Config:
             max_files=max_files,
             max_entry_points=max_entry_points,
             max_connectivity_files=max_connectivity_files
+            max_tokens_per_module=max_tokens_per_module,
+            max_tokens_per_leaf=max_tokens_per_leaf,
+            enable_parallel_processing=enable_parallel_processing,
+            concurrency_limit=concurrency_limit
         )

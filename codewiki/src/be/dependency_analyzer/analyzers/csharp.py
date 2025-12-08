@@ -7,6 +7,7 @@ import os
 from tree_sitter import Parser, Language
 import tree_sitter_c_sharp
 from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +49,10 @@ class TreeSitterCSharpAnalyzer:
 		return f"{module_path}.{name}" if module_path else name
 
 	def _analyze(self):
-		language_capsule = tree_sitter_c_sharp.language()
-		cs_language = Language(language_capsule)
-		parser = Parser(cs_language)
+		parser = get_thread_safe_parser('csharp')
+		if parser is None:
+			logger.error("C# parser not available in thread-safe pool")
+			return
 		tree = parser.parse(bytes(self.content, "utf8"))
 		root = tree.root_node
 		lines = self.content.splitlines()

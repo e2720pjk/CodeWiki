@@ -50,11 +50,24 @@ def config_group():
     type=str,
     help="Model for module clustering (recommend top-tier)"
 )
+@click.option(
+    "--enable-parallel-processing/--disable-parallel-processing",
+    default=None,
+    help="Enable parallel processing of leaf modules"
+)
+@click.option(
+    "--concurrency-limit",
+    type=click.IntRange(1, 10),
+    default=None,
+    help="Maximum concurrent API calls (1-10)"
+)
 def config_set(
     api_key: Optional[str],
     base_url: Optional[str],
     main_model: Optional[str],
-    cluster_model: Optional[str]
+    cluster_model: Optional[str],
+    enable_parallel_processing: Optional[bool],
+    concurrency_limit: Optional[int]
 ):
     """
     Set configuration values for CodeWiki.
@@ -77,7 +90,7 @@ def config_set(
     """
     try:
         # Check if at least one option is provided
-        if not any([api_key, base_url, main_model, cluster_model]):
+        if not any([api_key, base_url, main_model, cluster_model, enable_parallel_processing is not None, concurrency_limit is not None]):
             click.echo("No options provided. Use --help for usage information.")
             sys.exit(EXIT_CONFIG_ERROR)
         
@@ -96,6 +109,12 @@ def config_set(
         if cluster_model:
             validated_data['cluster_model'] = validate_model_name(cluster_model)
         
+        if enable_parallel_processing is not None:
+            validated_data['enable_parallel_processing'] = enable_parallel_processing
+        
+        if concurrency_limit is not None:
+            validated_data['concurrency_limit'] = concurrency_limit
+        
         # Create config manager and save
         manager = ConfigManager()
         manager.load()  # Load existing config if present
@@ -104,7 +123,9 @@ def config_set(
             api_key=validated_data.get('api_key'),
             base_url=validated_data.get('base_url'),
             main_model=validated_data.get('main_model'),
-            cluster_model=validated_data.get('cluster_model')
+            cluster_model=validated_data.get('cluster_model'),
+            enable_parallel_processing=validated_data.get('enable_parallel_processing'),
+            concurrency_limit=validated_data.get('concurrency_limit')
         )
         
         # Display success messages
@@ -137,6 +158,13 @@ def config_set(
                 click.echo(
                     "   Recommended models: claude-opus, claude-sonnet-4, gpt-4, gpt-4-turbo"
                 )
+        
+        if enable_parallel_processing is not None:
+            status = "enabled" if enable_parallel_processing else "disabled"
+            click.secho(f"✓ Parallel processing: {status}", fg="green")
+        
+        if concurrency_limit is not None:
+            click.secho(f"✓ Concurrency limit: {concurrency_limit}", fg="green")
         
         click.echo("\n" + click.style("Configuration updated successfully.", fg="green", bold=True))
         
@@ -193,6 +221,10 @@ def config_show(output_json: bool):
                 "main_model": config.main_model if config else "",
                 "cluster_model": config.cluster_model if config else "",
                 "default_output": config.default_output if config else "docs",
+                "max_tokens_per_module": config.max_tokens_per_module if config else 36369,
+                "max_tokens_per_leaf": config.max_tokens_per_leaf if config else 16000,
+                "enable_parallel_processing": config.enable_parallel_processing if config else True,
+                "concurrency_limit": config.concurrency_limit if config else 5,
                 "config_file": str(manager.config_file_path)
             }
             click.echo(json.dumps(output, indent=2))
@@ -222,7 +254,16 @@ def config_show(output_json: bool):
             click.echo()
             click.secho("Output Settings", fg="cyan", bold=True)
             if config:
-                click.echo(f"  Default Output:   {config.default_output}")
+                click.echo(f"  Default Output:           {config.default_output}")
+            
+            click.echo()
+            click.secho("Performance Settings", fg="cyan", bold=True)
+            if config:
+                click.echo(f"  Max Tokens per Module:    {config.max_tokens_per_module}")
+                click.echo(f"  Max Tokens per Leaf:       {config.max_tokens_per_leaf}")
+                status = "enabled" if config.enable_parallel_processing else "disabled"
+                click.echo(f"  Parallel Processing:       {status}")
+                click.echo(f"  Concurrency Limit:         {config.concurrency_limit}")
             
             click.echo()
             click.echo(f"Configuration file: {manager.config_file_path}")

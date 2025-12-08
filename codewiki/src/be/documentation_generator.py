@@ -1,16 +1,18 @@
 import logging
 import os
 import json
-from typing import Dict, List, Any
+import asyncio
+from typing import Dict, List, Any, Tuple
 from copy import deepcopy
 import traceback
+from tqdm.asyncio import tqdm
 
 # Configure logging and monitoring
 logger = logging.getLogger(__name__)
 
 # Local imports
 from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder
-from codewiki.src.be.llm_services import call_llm
+from codewiki.src.be.llm_services import call_llm, call_llm_async
 from codewiki.src.be.prompt_template import (
     REPO_OVERVIEW_PROMPT,
     MODULE_OVERVIEW_PROMPT,
@@ -24,6 +26,7 @@ from codewiki.src.config import (
 )
 from codewiki.src.utils import file_manager
 from codewiki.src.be.agent_orchestrator import AgentOrchestrator
+from codewiki.src.be.performance_metrics import performance_tracker
 
 
 class DocumentationGenerator:
@@ -121,6 +124,192 @@ class DocumentationGenerator:
 
         return processed_module_tree
 
+    async def process_leaf_modules_parallel(
+        self, 
+        leaf_modules: List[Tuple[List[str], str]], 
+        components: Dict[str, Any], 
+        working_dir: str
+    ) -> Dict[str, Any]:
+        """
+        Process leaf modules in parallel using semaphore-controlled concurrency.
+        
+        Args:
+            leaf_modules: List of (module_path, module_name) tuples for leaf modules
+            components: Components dictionary
+            working_dir: Working directory for output
+            
+        Returns:
+            Updated module tree
+        """
+        if not self.config.enable_parallel_processing or len(leaf_modules) <= 1:
+            # Fall back to sequential processing
+            return await self.process_leaf_modules_sequential(leaf_modules, components, working_dir)
+        
+        logger.info(f"Processing {len(leaf_modules)} leaf modules in parallel with concurrency limit {self.config.concurrency_limit}")
+        
+        semaphore = asyncio.Semaphore(self.config.concurrency_limit)
+        
+        async def process_with_semaphore(module_path: List[str], module_name: str) -> Tuple[str, bool]:
+            """Process a single leaf module with semaphore control."""
+            async with semaphore:
+                module_key = "/".join(module_path)
+                try:
+                    logger.info(f"📄 Processing leaf module: {module_key}")
+                    
+                    # Get module info
+                    module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
+                    module_tree = file_manager.load_json(module_tree_path)
+                    module_info = module_tree
+                    for path_part in module_path:
+                        module_info = module_info[path_part]
+                        if path_part != module_path[-1]:
+                            module_info = module_info.get("children", {})
+                    
+                    # Process the module
+                    start_time = asyncio.get_event_loop().time()
+                    result = await self.agent_orchestrator.process_module(
+                        module_name, components, module_info["components"], module_path, working_dir
+                    )
+                    processing_time = asyncio.get_event_loop().time() - start_time
+                    
+                    # Record metrics
+                    performance_tracker.record_module_processing(True, processing_time)
+                    
+                    return module_key, True
+                    
+                except Exception as e:
+                    logger.error(f"Failed to process leaf module {module_key}: {str(e)}")
+                    performance_tracker.record_module_processing(False, 0)
+                    return module_key, False
+        
+        # Process all modules in parallel with progress tracking
+        with tqdm(total=len(leaf_modules), desc="Processing leaf modules") as pbar:
+            async def process_with_progress(module_path: List[str], module_name: str):
+                result = await process_with_semaphore(module_path, module_name)
+                pbar.update(1)
+                return result
+            
+            results = await asyncio.gather(
+                *[process_with_progress(mp, mn) for mp, mn in leaf_modules],
+                return_exceptions=True
+            )
+        
+        # Check results and handle failures
+        failed_modules = []
+        for result in results:
+            if isinstance(result, Exception):
+                logger.error(f"Parallel processing error: {result}")
+                continue
+            
+            module_key, success = result
+            if not success:
+                failed_modules.append(module_key)
+        
+        # Retry failed modules sequentially
+        if failed_modules:
+            logger.warning(f"Retrying {len(failed_modules)} failed leaf modules sequentially")
+            await self.retry_failed_modules_sequential(failed_modules, leaf_modules, components, working_dir)
+        
+        # Return updated module tree
+        module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
+        return file_manager.load_json(module_tree_path)
+    
+    async def process_leaf_modules_sequential(
+        self, 
+        leaf_modules: List[Tuple[List[str], str]], 
+        components: Dict[str, Any], 
+        working_dir: str
+    ) -> Dict[str, Any]:
+        """
+        Process leaf modules sequentially (fallback method).
+        
+        Args:
+            leaf_modules: List of (module_path, module_name) tuples for leaf modules
+            components: Components dictionary
+            working_dir: Working directory for output
+            
+        Returns:
+            Updated module tree
+        """
+        logger.info(f"Processing {len(leaf_modules)} leaf modules sequentially")
+        
+        module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
+        
+        for module_path, module_name in leaf_modules:
+            module_key = "/".join(module_path)
+            try:
+                logger.info(f"📄 Processing leaf module: {module_key}")
+                
+                # Get module info
+                module_tree = file_manager.load_json(module_tree_path)
+                module_info = module_tree
+                for path_part in module_path:
+                    module_info = module_info[path_part]
+                    if path_part != module_path[-1]:
+                        module_info = module_info.get("children", {})
+                
+                # Process the module
+                start_time = asyncio.get_event_loop().time()
+                await self.agent_orchestrator.process_module(
+                    module_name, components, module_info["components"], module_path, working_dir
+                )
+                processing_time = asyncio.get_event_loop().time() - start_time
+                
+                # Record metrics
+                performance_tracker.record_module_processing(True, processing_time)
+                
+            except Exception as e:
+                logger.error(f"Failed to process leaf module {module_key}: {str(e)}")
+                performance_tracker.record_module_processing(False, 0)
+        
+        return file_manager.load_json(module_tree_path)
+    
+    async def retry_failed_modules_sequential(
+        self,
+        failed_modules: List[str],
+        all_leaf_modules: List[Tuple[List[str], str]],
+        components: Dict[str, Any],
+        working_dir: str
+    ) -> None:
+        """
+        Retry failed modules sequentially as fallback.
+        
+        Args:
+            failed_modules: List of module keys that failed
+            all_leaf_modules: All leaf modules for reference
+            components: Components dictionary
+            working_dir: Working directory for output
+        """
+        # Create mapping from module key to (module_path, module_name)
+        module_mapping = {"/".join(path): (path, name) for path, name in all_leaf_modules}
+        
+        for module_key in failed_modules:
+            if module_key not in module_mapping:
+                continue
+                
+            module_path, module_name = module_mapping[module_key]
+            try:
+                logger.info(f"🔄 Retrying leaf module: {module_key}")
+                
+                # Get module info
+                module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
+                module_tree = file_manager.load_json(module_tree_path)
+                module_info = module_tree
+                for path_part in module_path:
+                    module_info = module_info[path_part]
+                    if path_part != module_path[-1]:
+                        module_info = module_info.get("children", {})
+                
+                # Process the module
+                await self.agent_orchestrator.process_module(
+                    module_name, components, module_info["components"], module_path, working_dir
+                )
+                
+                logger.info(f"✓ Successfully retried module: {module_key}")
+                
+            except Exception as e:
+                logger.error(f"❌ Retry failed for module {module_key}: {str(e)}")
+
     async def generate_module_documentation(self, components: Dict[str, Any], leaf_nodes: List[str]) -> str:
         """Generate documentation for all modules using dynamic programming approach."""
         # Prepare output directory
@@ -134,43 +323,57 @@ class DocumentationGenerator:
         
         # Get processing order (leaf modules first)
         processing_order = self.get_processing_order(first_module_tree)
-
+        
+        # Separate leaf and parent modules
+        leaf_modules = []
+        parent_modules = []
+        
+        for module_path, module_name in processing_order:
+            # Get the module info from the tree
+            module_info = module_tree
+            for path_part in module_path:
+                module_info = module_info[path_part]
+                if path_part != module_path[-1]:  # Not the last part
+                    module_info = module_info.get("children", {})
+            
+            if self.is_leaf_module(module_info):
+                leaf_modules.append((module_path, module_name))
+            else:
+                parent_modules.append((module_path, module_name))
+        
+        # Start performance tracking
+        total_modules = len(processing_order)
+        leaf_count = len(leaf_modules)
+        performance_tracker.start_tracking(total_modules, leaf_count, self.config.concurrency_limit)
         
         # Process modules in dependency order
         final_module_tree = module_tree
         processed_modules = set()
 
         if len(module_tree) > 0:
-            for module_path, module_name in processing_order:
+            # Process leaf modules in parallel if enabled
+            if leaf_modules:
+                if self.config.enable_parallel_processing and len(leaf_modules) > 1:
+                    final_module_tree = await self.process_leaf_modules_parallel(
+                        leaf_modules, components, working_dir
+                    )
+                else:
+                    final_module_tree = await self.process_leaf_modules_sequential(
+                        leaf_modules, components, working_dir
+                    )
+            
+            # Process parent modules sequentially (must maintain order for context)
+            for module_path, module_name in parent_modules:
+                module_key = "/".join(module_path)
                 try:
-                    # Get the module info from the tree
-                    module_info = module_tree
-                    for path_part in module_path:
-                        module_info = module_info[path_part]
-                        if path_part != module_path[-1]:  # Not the last part
-                            module_info = module_info.get("children", {})
-                    
-                    # Skip if already processed
-                    module_key = "/".join(module_path)
-                    if module_key in processed_modules:
-                        continue
-                    
-                    # Process the module
-                    if self.is_leaf_module(module_info):
-                        logger.info(f"📄 Processing leaf module: {module_key}")
-                        final_module_tree = await self.agent_orchestrator.process_module(
-                            module_name, components, module_info["components"], module_path, working_dir
-                        )
-                    else:
-                        logger.info(f"📁 Processing parent module: {module_key}")
-                        final_module_tree = await self.generate_parent_module_docs(
-                            module_path, working_dir
-                        )
-                    
+                    logger.info(f"📁 Processing parent module: {module_key}")
+                    final_module_tree = await self.generate_parent_module_docs(
+                        module_path, working_dir
+                    )
                     processed_modules.add(module_key)
                     
                 except Exception as e:
-                    logger.error(f"Failed to process module {module_key}: {str(e)}")
+                    logger.error(f"Failed to process parent module {module_key}: {str(e)}")
                     continue
 
             # Generate repo overview
@@ -279,6 +482,11 @@ class DocumentationGenerator:
             
             # Create documentation metadata
             self.create_documentation_metadata(working_dir, components, len(leaf_nodes))
+            
+            # Stop performance tracking and calculate metrics
+            metrics = performance_tracker.stop_tracking()
+            logger.info(f"Performance metrics: {metrics.total_time:.2f}s total, "
+                       f"{metrics.successful_modules}/{metrics.total_modules} modules successful")
             
             logger.debug(f"Documentation generation completed successfully using dynamic programming!")
             logger.debug(f"Processing order: leaf modules → parent modules → repository overview")

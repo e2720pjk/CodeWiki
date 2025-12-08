@@ -25,7 +25,7 @@ class DependencyParser:
         self.modules: Set[str] = set()
         self.config = config
         
-        self.analysis_service = AnalysisService()
+        self.analysis_service = AnalysisService(config)
         self.config = config
 
     def parse_repository(self, _filtered_folders: Optional[List[str]] = None) -> Dict[str, Node]:

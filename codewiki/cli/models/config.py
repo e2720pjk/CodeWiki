@@ -30,6 +30,10 @@ class Configuration:
         max_files: Maximum number of files to analyze
         max_entry_points: Maximum fallback entry points
         max_connectivity_files: Maximum fallback connectivity files
+        max_tokens_per_module: Maximum tokens per module (keeps default)
+        max_tokens_per_leaf: Maximum tokens per leaf module (keeps default)
+        enable_parallel_processing: Enable parallel processing
+        concurrency_limit: Maximum concurrent API calls
     """
     base_url: str
     main_model: str
@@ -38,6 +42,10 @@ class Configuration:
     max_files: int = 100
     max_entry_points: int = 5
     max_connectivity_files: int = 10
+    max_tokens_per_module: int = 36369  # Keep default as requested
+    max_tokens_per_leaf: int = 16000    # Keep default as requested
+    enable_parallel_processing: bool = True
+    concurrency_limit: int = 5
     
     def validate(self):
         """
@@ -73,6 +81,10 @@ class Configuration:
             max_files=data.get('max_files', 100),
             max_entry_points=data.get('max_entry_points', 5),
             max_connectivity_files=data.get('max_connectivity_files', 10),
+            max_tokens_per_module=data.get('max_tokens_per_module', 36369),
+            max_tokens_per_leaf=data.get('max_tokens_per_leaf', 16000),
+            enable_parallel_processing=data.get('enable_parallel_processing', True),
+            concurrency_limit=data.get('concurrency_limit', 5),
         )
     
     def is_complete(self) -> bool:
@@ -110,5 +122,9 @@ class Configuration:
             max_files=self.max_files,
             max_entry_points=self.max_entry_points,
             max_connectivity_files=self.max_connectivity_files
+            max_tokens_per_module=self.max_tokens_per_module,
+            max_tokens_per_leaf=self.max_tokens_per_leaf,
+            enable_parallel_processing=self.enable_parallel_processing,
+            concurrency_limit=self.concurrency_limit
         )
 

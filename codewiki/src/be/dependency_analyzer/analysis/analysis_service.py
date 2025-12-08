@@ -32,9 +32,10 @@ class AnalysisService:
 
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """Initialize the analysis service with language-specific analyzers."""
         self.call_graph_analyzer = CallGraphAnalyzer()
+        self.config = config
         self._temp_directories = []
 
     def _validate_file_limits(self, max_files: int, max_entry_points: int, max_connectivity_files: int):
@@ -98,7 +99,8 @@ class AnalysisService:
             logger.debug(f"Analyzing {len(code_files)} files")
             
             # Analyze files
-            result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path)
+            enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
+            result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path, enable_parallel)
             
             return {
                 "nodes": result.get("functions", {}),
@@ -312,7 +314,8 @@ class AnalysisService:
         supported_files = self._filter_supported_languages(code_files)
         logger.debug(f"Analyzing {len(supported_files)} supported files.")
 
-        result = self.call_graph_analyzer.analyze_code_files(supported_files, repo_dir)
+        enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
+        result = self.call_graph_analyzer.analyze_code_files(supported_files, repo_dir, enable_parallel)
 
         result["call_graph"]["supported_languages"] = self._get_supported_languages()
         result["call_graph"]["unsupported_files"] = len(code_files) - len(supported_files)
