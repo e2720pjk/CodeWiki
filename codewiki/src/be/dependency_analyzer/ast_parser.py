@@ -18,20 +18,24 @@ logger.setLevel(logging.DEBUG)
 class DependencyParser:
     """Parser for extracting code components from multi-language repositories."""
     
-    def __init__(self, repo_path: str):
+    def __init__(self, repo_path: str, config=None):
         self.repo_path = os.path.abspath(repo_path)
         self.components: Dict[str, Node] = {}
         self.modules: Set[str] = set()
+        self.config = config
         
         self.analysis_service = AnalysisService()
 
     def parse_repository(self, filtered_folders: List[str] = None) -> Dict[str, Node]:
         logger.debug(f"Parsing repository at {self.repo_path}")
         
+        # Pass respect_gitignore option if available in config
+        respect_gitignore = getattr(self.config, 'respect_gitignore', False) if self.config else False
         structure_result = self.analysis_service._analyze_structure(
             self.repo_path, 
             include_patterns=None,
-            exclude_patterns=None
+            exclude_patterns=None,
+            respect_gitignore=respect_gitignore
         )
         
         call_graph_result = self.analysis_service._analyze_call_graph(
