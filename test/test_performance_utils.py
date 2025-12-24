@@ -143,7 +143,7 @@ def format_performance_report(
         if baseline_time and result.elapsed_time > 0:
             speedup = baseline_time / result.elapsed_time
             if result.name == baseline_name:
-                lines.append(f"   (baseline)")
+                lines.append("   (baseline)")
             elif speedup > 1:
                 improvement = ((1 - (result.elapsed_time / baseline_time)) * 100)
                 lines.append(f"   ({speedup:.2f}x faster, {improvement:.1f}% improvement)")
@@ -188,8 +188,21 @@ def compare_parallel_vs_sequential(
         'parallel': lambda: parallel_func(*args),
     }, iterations=iterations)
     
-    seq_time = next(r.elapsed_time for r in results if r.name == 'sequential')
-    par_time = next(r.elapsed_time for r in results if r.name == 'parallel')
+    seq_result = next((r for r in results if r.name == 'sequential'), None)
+    par_result = next((r for r in results if r.name == 'parallel'), None)
+    
+    if seq_result is None or par_result is None:
+        return {
+            'sequential_time': 0,
+            'parallel_time': 0,
+            'speedup': 0,
+            'improvement_percent': 0,
+            'results': results,
+            'error': 'Missing sequential or parallel result'
+        }
+    
+    seq_time = seq_result.elapsed_time
+    par_time = par_result.elapsed_time
     
     return {
         'sequential_time': seq_time,

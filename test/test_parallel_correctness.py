@@ -11,8 +11,8 @@ import tempfile
 import os
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add parent directory to path to import codewiki
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def create_test_files(base_dir: Path, file_count: int = 10) -> list:
@@ -80,7 +80,7 @@ function calculate(x: number, y: number): number {
         file_path = base_dir / "python" / f"module{i}.py"
         file_path.write_text(python_code)
         files.append({
-            'path': str(file_path.relative_to(base_dir.parent)),
+            'path': str(file_path.relative_to(base_dir)),
             'name': f"module{i}.py",
             'extension': '.py',
             'language': 'python'
@@ -91,7 +91,7 @@ function calculate(x: number, y: number): number {
         file_path = base_dir / "javascript" / f"module{i}.js"
         file_path.write_text(js_code)
         files.append({
-            'path': str(file_path.relative_to(base_dir.parent)),
+            'path': str(file_path.relative_to(base_dir)),
             'name': f"module{i}.js",
             'extension': '.js',
             'language': 'javascript'
@@ -102,7 +102,7 @@ function calculate(x: number, y: number): number {
         file_path = base_dir / "typescript" / f"module{i}.ts"
         file_path.write_text(ts_code)
         files.append({
-            'path': str(file_path.relative_to(base_dir.parent)),
+            'path': str(file_path.relative_to(base_dir)),
             'name': f"module{i}.ts",
             'extension': '.ts',
             'language': 'typescript'
@@ -129,7 +129,6 @@ def test_parallel_vs_sequential_correctness():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir) / "test_repo"
             tmpdir.mkdir()
-            base_dir = tmpdir.parent
             
             # Create test files
             code_files = create_test_files(tmpdir, file_count=10)
@@ -240,7 +239,6 @@ def test_single_file():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir) / "test_repo"
             tmpdir.mkdir()
-            base_dir = tmpdir.parent
             
             # Create single test file
             code_files = create_test_files(tmpdir, file_count=1)
@@ -292,7 +290,6 @@ def test_mixed_languages():
         with tempfile.TemporaryDirectory() as tmpdir:
             tmpdir = Path(tmpdir) / "test_repo"
             tmpdir.mkdir()
-            base_dir = tmpdir.parent
             
             # Create mixed language files
             code_files = create_test_files(tmpdir, file_count=9)

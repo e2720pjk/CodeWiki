@@ -104,7 +104,9 @@ def config_set(
     """
     try:
         # Check if at least one option is provided
-        if not any([api_key, base_url, main_model, cluster_model, enable_parallel_processing is not None, concurrency_limit is not None]):
+        if not any([api_key, base_url, main_model, cluster_model, 
+                    enable_parallel_processing is not None, concurrency_limit is not None,
+                    max_tokens_per_module is not None, max_tokens_per_leaf is not None]):
             click.echo("No options provided. Use --help for usage information.")
             sys.exit(EXIT_CONFIG_ERROR)
         

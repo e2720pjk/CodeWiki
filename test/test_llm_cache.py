@@ -91,7 +91,6 @@ def test_cache_hit_for_identical_prompt():
         prompt = "What is the purpose of this function?"
         model = "test-model"
         response1 = "This function processes user input."
-        response2 = "This function processes user input."
         
         # First call - cache miss
         result1 = cache.get(prompt, model)
