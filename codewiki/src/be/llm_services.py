@@ -72,14 +72,43 @@ def create_openai_client(config: Config) -> OpenAI:
 
 
 class ClientManager:
-    """Manages async OpenAI clients with connection pooling."""
+    """
+    Manages async OpenAI clients with connection pooling.
+    
+    Singleton Pattern: Creates one AsyncOpenAI client per unique (base_url, api_key) combination
+    and reuses it across multiple requests. Client reuse is critical for:
+      - Connection pooling: HTTP connections are kept alive and reused
+      - Thread safety: AsyncOpenAI clients are safe for concurrent asyncio task access
+      - Performance: Avoids TCP/TLS handshake overhead on each request
+    
+    HTTP Backend: Uses httpx with connection pooling limits appropriate for concurrency_limit=5:
+      - max_keepalive_connections=20: Keeps 20 idle connections ready for reuse
+      - max_connections=100: Maximum concurrent connections (far above default concurrency)
+      Note: aiohttp backend would only provide benefits at concurrency_limit > 20
+    """
     
     def __init__(self):
         self._clients: Dict[str, AsyncOpenAI] = {}
         self._lock = asyncio.Lock()
     
     async def get_client(self, config: Config) -> AsyncOpenAI:
-        """Get or create async OpenAI client with connection pooling."""
+        """
+        Get or create async OpenAI client with connection pooling.
+        
+        Returns a cached AsyncOpenAI client for the given configuration.
+        If no client exists for this config, creates a new one with optimized
+        connection pooling settings.
+        
+        Thread Safety: AsyncOpenAI clients are safe for concurrent access from
+        multiple asyncio tasks. The lock ensures only one client instance is
+        created per unique config key, avoiding race conditions during initialization.
+        
+        Args:
+            config: Configuration containing llm_base_url and llm_api_key
+            
+        Returns:
+            AsyncOpenAI client instance
+        """
         client_key = f"{config.llm_base_url}_{config.llm_api_key[:8]}"
         
         async with self._lock:
@@ -143,6 +172,17 @@ async def call_llm_async_with_retry(
     """
     Call LLM asynchronously with connection pooling and retry logic.
     
+    Retry Strategy: Implements exponential backoff for retryable errors:
+      - Network errors (connection, timeout)
+      - Rate limiting (HTTP 429)
+      - Server errors (HTTP 502, 503, 504)
+      - Temporary failures
+    Non-retryable errors (e.g., authentication, invalid request) are raised immediately.
+    
+    Thread Safety: AsyncOpenAI client from ClientManager is safe for concurrent
+    access from multiple asyncio tasks. Each task gets its own coroutine context,
+    but the underlying HTTP connection pool is shared efficiently.
+    
     Args:
         prompt: The prompt to send
         config: Configuration containing LLM settings
@@ -156,7 +196,7 @@ async def call_llm_async_with_retry(
         LLM response text
         
     Raises:
-        Exception: If all retries are exhausted
+        Exception: If all retries are exhausted or error is non-retryable
     """
     if model is None:
         model = config.main_model
