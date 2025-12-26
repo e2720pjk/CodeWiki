@@ -17,6 +17,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 
+logger = logging.getLogger(__name__)
+
 # Define LLMPromptCache inline for testing (to avoid import chain issues)
 class LLMPromptCache:
     """
@@ -32,7 +34,7 @@ class LLMPromptCache:
         self._access_order: list[str] = []
         self._lock = threading.RLock()
     
-    def _generate_cache_key(self, prompt: str, model: str, 
+    def _generate_cache_key(self, prompt: str, model: str,
                            max_tokens: Optional[int] = None) -> str:
         content_parts = [prompt.strip(), model]
         if max_tokens is not None:
@@ -40,12 +42,13 @@ class LLMPromptCache:
         content = "|".join(content_parts)
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
     
-    def get(self, prompt: str, model: str, 
+    def get(self, prompt: str, model: str,
             max_tokens: Optional[int] = None) -> Optional[str]:
         key = self._generate_cache_key(prompt, model, max_tokens)
         with self._lock:
             if key in self._cache:
                 self._update_access_order(key)
+                logger.debug(f"Cache hit for prompt: {key[:16]}...")
                 return self._cache[key]
         return None
     
@@ -56,8 +59,10 @@ class LLMPromptCache:
             if len(self._cache) >= self.max_size and key not in self._cache:
                 oldest_key = self._access_order.pop(0)
                 del self._cache[oldest_key]
+                logger.debug(f"Evicted cache entry: {oldest_key[:16]}...")
             self._cache[key] = response
             self._update_access_order(key)
+        logger.debug(f"Cached response for prompt: {key[:16]}...")
     
     def _update_access_order(self, key: str) -> None:
         if key in self._access_order:
@@ -68,6 +73,7 @@ class LLMPromptCache:
         with self._lock:
             self._cache.clear()
             self._access_order.clear()
+        logger.debug("Cache cleared")
     
     def get_stats(self) -> Dict[str, Any]:
         with self._lock:
@@ -75,6 +81,7 @@ class LLMPromptCache:
                 "size": len(self._cache),
                 "max_size": self.max_size,
                 "utilization": len(self._cache) / self.max_size if self.max_size > 0 else 0,
+                "keys": list(self._cache.keys())
             }
 
 

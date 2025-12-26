@@ -63,15 +63,15 @@ def config_group():
 )
 @click.option(
     "--max-tokens-per-module",
-    type=int,
+    type=click.IntRange(min=1000, max=200000),
     default=None,
-    help="Maximum tokens per module (default: 36369)"
+    help="Maximum tokens per module (default: 36369, range: 1000-200000)"
 )
 @click.option(
     "--max-tokens-per-leaf",
-    type=int,
+    type=click.IntRange(min=500, max=100000),
     default=None,
-    help="Maximum tokens per leaf module (default: 16000)"
+    help="Maximum tokens per leaf module (default: 16000, range: 500-100000)"
 )
 def config_set(
     api_key: Optional[str],
@@ -132,13 +132,9 @@ def config_set(
             validated_data['concurrency_limit'] = concurrency_limit
         
         if max_tokens_per_module is not None:
-            if max_tokens_per_module < 1000:
-                click.secho("Warning: max-tokens-per-module must be at least 1000", fg="yellow")
             validated_data['max_tokens_per_module'] = max_tokens_per_module
-        
+
         if max_tokens_per_leaf is not None:
-            if max_tokens_per_leaf < 500:
-                click.secho("Warning: max-tokens-per-leaf must be at least 500", fg="yellow")
             validated_data['max_tokens_per_leaf'] = max_tokens_per_leaf
         
         # Create config manager and save

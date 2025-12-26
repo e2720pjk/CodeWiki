@@ -770,13 +770,23 @@ str_replace_editor_tool = Tool(
     function=str_replace_editor,
     name="str_replace_editor",
     description="""
-Custom editing tool for viewing, creating and editing files
-    * State is persistent across command calls and discussions with the user
-    * If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep.
-    * The `create` command cannot be used if the specified `path` already exists as a file
-    * If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-    * The `undo_edit` command will revert the last edit made to the file at `path`
-    * Only `view` command is allowed when `working_dir` is `repo`.
+File system operations for creating and editing documentation files.
+IMPORTANT: You MUST use absolute paths starting with '/' when calling this tool.
+Available commands:
+- view: View file or directory contents
+- create: Create a new file with given text
+- str_replace: Replace old_str with new_str in a file
+- insert: Insert text at a specific line
+- undo_edit: Undo the last edit
+Parameters:
+- working_dir: Choose "docs" for documentation files or "repo" for source code (read-only)
+- command: One of the commands above
+- path: Absolute path to the file/directory
+- file_text: Required for "create" command
+- old_str: Required for "str_replace" command
+- new_str: Optional new text for "str_replace" or "insert" commands
+- view_range: Optional [start, end] for viewing specific lines
+CRITICAL: The "str_replace" command requires old_str to match EXACTLY (character-for-character).
 """.strip(),
     takes_ctx=True
 )

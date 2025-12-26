@@ -52,6 +52,7 @@ async def generate_sub_module_documentation(
                 model=fallback_models,
                 name=sub_module_name,
                 deps_type=CodeWikiDeps,
+                retries=ctx.deps.config.agent_retries,
                 system_prompt=SYSTEM_PROMPT.format(module_name=sub_module_name),
                 tools=[read_code_components_tool, str_replace_editor_tool, generate_sub_module_documentation_tool],
             )
@@ -60,6 +61,7 @@ async def generate_sub_module_documentation(
                 model=fallback_models,
                 name=sub_module_name,
                 deps_type=CodeWikiDeps,
+                retries=ctx.deps.config.agent_retries,
                 system_prompt=LEAF_SYSTEM_PROMPT.format(module_name=sub_module_name),
                 tools=[read_code_components_tool, str_replace_editor_tool],
             )
