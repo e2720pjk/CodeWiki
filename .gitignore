@@ -38,7 +38,9 @@ MANIFEST
 htmlcov/
 .tox/
 .hypothesis/
+# Ignore tests/ directory but allow A/B tests
 tests/
+!tests/ab_testing/
 
 # Jupyter
 *.ipynb
