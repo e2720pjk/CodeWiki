@@ -71,6 +71,8 @@ class Config:
     concurrency_limit: int = 5
     # LLM caching configuration
     enable_llm_cache: bool = True
+    # Agent retry configuration
+    agent_retries: int = 3
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "Config":
@@ -157,4 +159,5 @@ class Config:
             max_tokens_per_leaf=max_tokens_per_leaf,
             enable_parallel_processing=enable_parallel_processing,
             concurrency_limit=concurrency_limit,
+            agent_retries=3,
         )

@@ -62,7 +62,7 @@ class AgentOrchestrator:
         self.config = config
         self.fallback_models = create_fallback_models(config)
     
-    def create_agent(self, module_name: str, components: Dict[str, Any], 
+    def create_agent(self, module_name: str, components: Dict[str, Any],
                     core_component_ids: List[str]) -> Agent:
         """Create an appropriate agent based on module complexity."""
         if is_complex_module(components, core_component_ids):
@@ -70,9 +70,10 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
+                retries=self.config.agent_retries,
                 tools=[
-                    read_code_components_tool, 
-                    str_replace_editor_tool, 
+                    read_code_components_tool,
+                    str_replace_editor_tool,
                     generate_sub_module_documentation_tool
                 ],
                 system_prompt=SYSTEM_PROMPT.format(module_name=module_name),
@@ -82,6 +83,7 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
+                retries=self.config.agent_retries,
                 tools=[read_code_components_tool, str_replace_editor_tool],
                 system_prompt=LEAF_SYSTEM_PROMPT.format(module_name=module_name),
             )
@@ -135,13 +137,20 @@ class AgentOrchestrator:
                 ),
                 deps=deps
             )
-            
+
             # Save updated module tree
             file_manager.save_json(deps.module_tree, module_tree_path)
             logger.debug(f"Successfully processed module: {module_name}")
-            
+
             return deps.module_tree
-            
+
         except Exception as e:
-            logger.error(f"Error processing module {module_name}: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"Error processing module {module_name}: {error_msg}")
+
+            # Check if it's a tool retry error and provide guidance
+            if "exceeded max retries" in error_msg:
+                logger.error(f"Tool execution failed - LLM may be having difficulty generating valid tool calls.")
+                logger.error(f"Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM")
+
             raise

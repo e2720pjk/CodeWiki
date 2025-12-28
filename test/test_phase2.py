@@ -12,7 +12,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
 def test_thread_safe_parser():
-    """Test ThreadSafeParserPool functionality."""
+    """
+    Test ThreadSafeParserPool functionality.
+    
+    Validates that parsers can be retrieved for multiple languages.
+    Note: Some parsers may not be available if their language grammars
+    are not installed, so we expect at least 50% success rate.
+    """
     print("Testing ThreadSafeParserPool...")
     
     try:
@@ -37,7 +43,15 @@ def test_thread_safe_parser():
         return False
 
 def test_call_graph_analyzer():
-    """Test CallGraphAnalyzer parallel implementation."""
+    """
+    Test CallGraphAnalyzer parallel implementation.
+    
+    Validates:
+    - CallGraphAnalyzer can be instantiated
+    - Empty file list handling works correctly
+    - Sequential fallback is triggered when appropriate
+    - Parallel mode falls back to sequential for empty inputs
+    """
     print("\nTesting CallGraphAnalyzer...")
     
     try:
@@ -46,32 +60,35 @@ def test_call_graph_analyzer():
         analyzer = CallGraphAnalyzer()
         print("  ✓ CallGraphAnalyzer instantiated")
         
-        # Test with empty file list
-        result = analyzer.analyze_code_files([], '/tmp', enable_parallel=True)
         expected_keys = {'call_graph', 'functions', 'relationships', 'visualization'}
-        actual_keys = set(result.keys())
         
-        if expected_keys.issubset(actual_keys):
+        # Test cases: (enable_parallel, expected_approach, test_name)
+        test_cases = [
+            (True, 'sequential', 'Parallel flag falls back to sequential for empty input'),
+            (False, 'sequential', 'Sequential fallback test passed'),
+        ]
+        
+        for enable_parallel, expected_approach, test_name in test_cases:
+            result = analyzer.analyze_code_files([], '/tmp', enable_parallel=enable_parallel)
+            actual_keys = set(result.keys())
+            
+            if not expected_keys.issubset(actual_keys):
+                print(f"  ✗ Missing keys: {set(expected_keys) - actual_keys}")
+                return False
+            
+            actual_approach = result['call_graph']['analysis_approach']
+            if actual_approach == expected_approach:
+                print(f"  ✓ {test_name}")
+            else:
+                print(f"  ✗ {test_name} (got '{actual_approach}' instead of '{expected_approach}')")
+                return False
+        
+        # Validate result structure for empty file list
+        result = analyzer.analyze_code_files([], '/tmp', enable_parallel=True)
+        if expected_keys.issubset(set(result.keys())):
             print("  ✓ Empty file list test passed")
         else:
-            print(f"  ✗ Missing keys: {set(expected_keys) - actual_keys}")
-            return False
-        
-        # Test sequential fallback
-        result_seq = analyzer.analyze_code_files([], '/tmp', enable_parallel=False)
-        if result_seq['call_graph']['analysis_approach'] == 'sequential':
-            print("  ✓ Sequential fallback test passed")
-        else:
-            print("  ✗ Sequential fallback failed")
-            return False
-        
-        # Test behavior when parallel flag is set but there are no files;
-        # analyzer should fall back to sequential in this case.
-        result_par = analyzer.analyze_code_files([], '/tmp', enable_parallel=True)
-        if result_par['call_graph']['analysis_approach'] == 'sequential':
-            print("  ✓ Parallel flag falls back to sequential for empty input")
-        else:
-            print("  ✗ Parallel mode failed")
+            print(f"  ✗ Missing keys: {set(expected_keys) - set(result.keys())}")
             return False
         
         return True
@@ -83,7 +100,14 @@ def test_call_graph_analyzer():
         return False
 
 def test_configuration():
-    """Test configuration compatibility."""
+    """
+    Test configuration compatibility.
+    
+    Validates that Configuration.from_dict() correctly handles all fields including:
+    - API settings (base_url, main_model, cluster_model)
+    - Token limits (max_tokens_per_module, max_tokens_per_leaf)
+    - Parallel processing settings (enable_parallel_processing, concurrency_limit)
+    """
     print("\nTesting Configuration...")
     
     try:

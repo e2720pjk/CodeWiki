@@ -61,13 +61,27 @@ def config_group():
     default=None,
     help="Maximum concurrent API calls (1-10)"
 )
+@click.option(
+    "--max-tokens-per-module",
+    type=click.IntRange(min=1000, max=200000),
+    default=None,
+    help="Maximum tokens per module (default: 36369, range: 1000-200000)"
+)
+@click.option(
+    "--max-tokens-per-leaf",
+    type=click.IntRange(min=500, max=100000),
+    default=None,
+    help="Maximum tokens per leaf module (default: 16000, range: 500-100000)"
+)
 def config_set(
     api_key: Optional[str],
     base_url: Optional[str],
     main_model: Optional[str],
     cluster_model: Optional[str],
     enable_parallel_processing: Optional[bool],
-    concurrency_limit: Optional[int]
+    concurrency_limit: Optional[int],
+    max_tokens_per_module: Optional[int],
+    max_tokens_per_leaf: Optional[int]
 ):
     """
     Set configuration values for CodeWiki.
@@ -90,7 +104,9 @@ def config_set(
     """
     try:
         # Check if at least one option is provided
-        if not any([api_key, base_url, main_model, cluster_model, enable_parallel_processing is not None, concurrency_limit is not None]):
+        if not any([api_key, base_url, main_model, cluster_model, 
+                    enable_parallel_processing is not None, concurrency_limit is not None,
+                    max_tokens_per_module is not None, max_tokens_per_leaf is not None]):
             click.echo("No options provided. Use --help for usage information.")
             sys.exit(EXIT_CONFIG_ERROR)
         
@@ -115,6 +131,12 @@ def config_set(
         if concurrency_limit is not None:
             validated_data['concurrency_limit'] = concurrency_limit
         
+        if max_tokens_per_module is not None:
+            validated_data['max_tokens_per_module'] = max_tokens_per_module
+
+        if max_tokens_per_leaf is not None:
+            validated_data['max_tokens_per_leaf'] = max_tokens_per_leaf
+        
         # Create config manager and save
         manager = ConfigManager()
         manager.load()  # Load existing config if present
@@ -125,7 +147,9 @@ def config_set(
             main_model=validated_data.get('main_model'),
             cluster_model=validated_data.get('cluster_model'),
             enable_parallel_processing=validated_data.get('enable_parallel_processing'),
-            concurrency_limit=validated_data.get('concurrency_limit')
+            concurrency_limit=validated_data.get('concurrency_limit'),
+            max_tokens_per_module=validated_data.get('max_tokens_per_module'),
+            max_tokens_per_leaf=validated_data.get('max_tokens_per_leaf')
         )
         
         # Display success messages
@@ -165,6 +189,12 @@ def config_set(
         
         if concurrency_limit is not None:
             click.secho(f"✓ Concurrency limit: {concurrency_limit}", fg="green")
+        
+        if max_tokens_per_module is not None:
+            click.secho(f"✓ Max tokens per module: {max_tokens_per_module}", fg="green")
+        
+        if max_tokens_per_leaf is not None:
+            click.secho(f"✓ Max tokens per leaf: {max_tokens_per_leaf}", fg="green")
         
         click.echo("\n" + click.style("Configuration updated successfully.", fg="green", bold=True))
         

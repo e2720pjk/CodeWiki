@@ -89,7 +89,9 @@ class ConfigManager:
         cluster_model: Optional[str] = None,
         default_output: Optional[str] = None,
         enable_parallel_processing: Optional[bool] = None,
-        concurrency_limit: Optional[int] = None
+        concurrency_limit: Optional[int] = None,
+        max_tokens_per_module: Optional[int] = None,
+        max_tokens_per_leaf: Optional[int] = None
     ):
         """
         Save configuration to file and keyring.
@@ -102,6 +104,8 @@ class ConfigManager:
             default_output: Default output directory
             enable_parallel_processing: Enable parallel processing of leaf modules
             concurrency_limit: Maximum concurrent API calls (1-10)
+            max_tokens_per_module: Maximum tokens per module
+            max_tokens_per_leaf: Maximum tokens per leaf module
         """
         # Ensure config directory exists
         try:
@@ -134,6 +138,12 @@ class ConfigManager:
             self._config.enable_parallel_processing = enable_parallel_processing
         if concurrency_limit is not None:
             self._config.concurrency_limit = concurrency_limit
+        
+        if max_tokens_per_module is not None:
+            self._config.max_tokens_per_module = max_tokens_per_module
+        
+        if max_tokens_per_leaf is not None:
+            self._config.max_tokens_per_leaf = max_tokens_per_leaf
         
         # Validate configuration
         self._config.validate()
