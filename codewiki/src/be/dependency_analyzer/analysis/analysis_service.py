@@ -15,6 +15,10 @@ from codewiki.src.be.dependency_analyzer.analysis.call_graph_analyzer import Cal
 from codewiki.src.be.dependency_analyzer.analysis.cloning import clone_repository, cleanup_repository, parse_github_url
 from codewiki.src.be.dependency_analyzer.models.analysis import AnalysisResult
 from codewiki.src.be.dependency_analyzer.models.core import Repository
+from codewiki.src.be.dependency_analyzer.utils.patterns import (
+    find_fallback_entry_points,
+    find_fallback_connectivity_files
+)
 
 
 logger = logging.getLogger(__name__)
@@ -63,55 +67,73 @@ class AnalysisService:
     ) -> Dict[str, Any]:
         """
         Analyze a local repository folder.
-        
+
         Args:
             repo_path: Path to local repository folder
             max_files: Maximum number of files to analyze
             max_entry_points: Maximum fallback entry points
             max_connectivity_files: Maximum fallback connectivity files
             languages: List of languages to include (e.g., ['python', 'javascript'])
-            
+
         Returns:
-            Dict with analysis results including nodes and relationships
+            Dict with analysis results including:
+                - nodes: Dict of function/call nodes
+                - relationships: List of call relationships
+                - entry_points: List of entry point files
+                - connectivity_files: List of high-connectivity files
+                - summary: Summary statistics including total_files, total_nodes,
+                          total_relationships, total_entry_points, total_connectivity_files
         """
         try:
             logger.debug(f"Analyzing local repository at {repo_path}")
-            
+
             # Validate file limits
             self._validate_file_limits(max_files, max_entry_points, max_connectivity_files)
-            
+
             # Get repo analyzer to find files
             repo_analyzer = RepoAnalyzer()
             structure_result = repo_analyzer.analyze_repository_structure(repo_path)
-            
+
             # Extract code files
             code_files = self.call_graph_analyzer.extract_code_files(structure_result["file_tree"])
-            
+
             # Filter by languages if specified
             if languages:
                 code_files = [f for f in code_files if f.get("language") in languages]
-            
+
             # Limit number of files
             if len(code_files) > max_files:
                 code_files = code_files[:max_files]
                 logger.debug(f"Limited analysis to {max_files} files")
-            
+
             logger.debug(f"Analyzing {len(code_files)} files")
-            
+
+            # Find fallback entry points
+            entry_points = find_fallback_entry_points(code_files, max_files=max_entry_points)
+            logger.debug(f"Found {len(entry_points)} fallback entry points")
+
+            # Find fallback connectivity files
+            connectivity_files = find_fallback_connectivity_files(code_files, max_files=max_connectivity_files)
+            logger.debug(f"Found {len(connectivity_files)} fallback connectivity files")
+
             # Analyze files
             enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
             result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path, enable_parallel)
-            
+
             return {
                 "nodes": result.get("functions", {}),
                 "relationships": result.get("relationships", []),
+                "entry_points": entry_points,
+                "connectivity_files": connectivity_files,
                 "summary": {
                     "total_files": len(code_files),
                     "total_nodes": len(result.get("functions", {})),
-                    "total_relationships": len(result.get("relationships", []))
+                    "total_relationships": len(result.get("relationships", [])),
+                    "total_entry_points": len(entry_points),
+                    "total_connectivity_files": len(connectivity_files)
                 }
             }
-            
+
         except Exception as e:
             logger.error(f"Local repository analysis failed: {str(e)}", exc_info=True)
             raise RuntimeError(f"Analysis failed: {str(e)}")
