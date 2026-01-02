@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from typing import List, Set, Optional, Tuple
 from pathlib import Path
 import sys
@@ -31,6 +32,16 @@ class TreeSitterJSAnalyzer:
         self.parser = get_thread_safe_parser('javascript')
         if self.parser is None:
             logger.error("JavaScript parser not available in thread-safe pool")
+        try:
+            language_capsule = tree_sitter_javascript.language()
+            self.js_language = Language(language_capsule)
+            self.parser = Parser(self.js_language)
+
+        except Exception as e:
+            logger.error(f"Failed to initialize JavaScript parser: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            self.parser = None
+            self.js_language = None
 
 
     def _add_relationship(self, relationship: CallRelationship) -> bool:

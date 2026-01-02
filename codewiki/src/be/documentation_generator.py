@@ -46,7 +46,7 @@ class DocumentationGenerator:
             "generation_info": {
                 "timestamp": datetime.now().isoformat(),
                 "main_model": self.config.main_model,
-                "generator_version": "1.0.0",
+                "generator_version": "1.0.1",
                 "repo_path": self.config.repo_path,
                 "commit_id": self.commit_id
             },
@@ -374,6 +374,7 @@ class DocumentationGenerator:
                     
                 except Exception as e:
                     logger.error(f"Failed to process parent module {module_key}: {str(e)}")
+                    logger.error(f"Traceback: {traceback.format_exc()}")
                     continue
 
             # Generate repo overview
@@ -445,6 +446,7 @@ class DocumentationGenerator:
             
         except Exception as e:
             logger.error(f"Error generating parent documentation for {module_name}: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise
     
     async def run(self) -> None:

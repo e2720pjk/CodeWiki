@@ -87,6 +87,7 @@ class ConfigManager:
         base_url: Optional[str] = None,
         main_model: Optional[str] = None,
         cluster_model: Optional[str] = None,
+        fallback_model: Optional[str] = None,
         default_output: Optional[str] = None,
         enable_parallel_processing: Optional[bool] = None,
         concurrency_limit: Optional[int] = None,
@@ -101,6 +102,7 @@ class ConfigManager:
             base_url: LLM API base URL
             main_model: Primary model
             cluster_model: Clustering model
+            fallback_model: Fallback model
             default_output: Default output directory
             enable_parallel_processing: Enable parallel processing of leaf modules
             concurrency_limit: Maximum concurrent API calls (1-10)
@@ -122,6 +124,7 @@ class ConfigManager:
                     base_url="",
                     main_model="",
                     cluster_model="",
+                    fallback_model="glm-4p5",
                     default_output="docs"
                 )
         
@@ -132,6 +135,8 @@ class ConfigManager:
             self._config.main_model = main_model
         if cluster_model is not None:
             self._config.cluster_model = cluster_model
+        if fallback_model is not None:
+            self._config.fallback_model = fallback_model
         if default_output is not None:
             self._config.default_output = default_output
         if enable_parallel_processing is not None:

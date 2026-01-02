@@ -7,6 +7,7 @@ AST parsing for call graph generation.
 """
 
 import logging
+import traceback
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 from codewiki.src.be.dependency_analyzer.utils.security import safe_open_text, assert_safe_path
@@ -258,6 +259,7 @@ class AnalysisService:
             if temp_dir:
                 self._cleanup_repository(temp_dir)
             logger.error(f"Structure analysis failed for {github_url}: {str(e)}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise RuntimeError(f"Structure analysis failed: {str(e)}") from e
 
     def _clone_repository(self, github_url: str) -> str:
@@ -348,16 +350,17 @@ class AnalysisService:
         """
         Filter code files to only include supported languages.
 
-        Supports Python, JavaScript, TypeScript, C, C++, Go, and Rust.
+        Supports Python, JavaScript, TypeScript, Java, C#, C, C++, PHP, Go, and Rust.
         """
         supported_languages = {
             "python",
-            "javascript", 
+            "javascript",
             "typescript",
             "java",
             "csharp",
             "c",
             "cpp",
+            "php",
             "go",
             "rust",
         }
@@ -370,7 +373,7 @@ class AnalysisService:
 
     def _get_supported_languages(self) -> List[str]:
         """Get list of currently supported languages for analysis."""
-        return ["python", "javascript", "typescript", "java", "csharp", "c", "cpp"]
+        return ["python", "javascript", "typescript", "java", "csharp", "c", "cpp", "php"]
 
     def _cleanup_repository(self, temp_dir: str):
         """Clean up cloned repository."""

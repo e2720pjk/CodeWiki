@@ -2,6 +2,7 @@ from pydantic_ai import Agent
 # import logfire
 import logging
 import os
+import traceback
 from typing import Dict, List, Any
 
 # Configure logging and monitoring
@@ -153,4 +154,5 @@ class AgentOrchestrator:
                 logger.error(f"Tool execution failed - LLM may be having difficulty generating valid tool calls.")
                 logger.error(f"Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM")
 
+            logger.error(f"Traceback: {traceback.format_exc()}")
             raise

@@ -1,5 +1,6 @@
 import logging
 import os
+import traceback
 from typing import List, Set, Optional, Tuple
 from pathlib import Path
 import sys
@@ -29,6 +30,16 @@ class TreeSitterTSAnalyzer:
         self.parser = get_thread_safe_parser('typescript')
         if self.parser is None:
             logger.error("TypeScript parser not available in thread-safe pool")
+        try:
+            language_capsule = tree_sitter_typescript.language_typescript()
+            self.ts_language = Language(language_capsule)
+            self.parser = Parser(self.ts_language)
+
+        except Exception as e:
+            logger.error(f"Failed to initialize TypeScript parser: {e}")
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            self.parser = None
+            self.ts_language = None
 
     def analyze(self) -> None:
         if self.parser is None:
