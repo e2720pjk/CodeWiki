@@ -55,8 +55,6 @@ class DependencyGraphBuilder:
             self.config.dependency_graph_dir, f"{sanitized_repo_name}_filtered_folders.json"
         )
 
-        parser = DependencyParser(self.config.repo_path)
-
         filtered_folders = None
         # if os.path.exists(filtered_folders_path):
         #     logger.debug(f"Loading filtered folders from {filtered_folders_path}")
@@ -69,15 +67,7 @@ class DependencyGraphBuilder:
 
         # Parse repository
         if isinstance(self.parser, DependencyParser):
-            if isinstance(self.parser, DependencyParser):
-                components = self.parser.parse_repository(filtered_folders or [])
-            else:
-                # HybridAnalysisService uses different interface
-                result = self.parser.analyze_repository_hybrid(
-                    repo_path=self.config.repo_path, max_files=100
-                )
-                # Convert hybrid result to expected format
-                components = result.get("nodes", {})
+            components = self.parser.parse_repository(filtered_folders or [])
         else:
             # HybridAnalysisService uses different interface
             result = self.parser.analyze_repository_hybrid(
@@ -87,7 +77,12 @@ class DependencyGraphBuilder:
             components = result.get("nodes", {})
 
         # Save dependency graph
-        parser.save_dependency_graph(dependency_graph_path)
+        if isinstance(self.parser, DependencyParser):
+            self.parser.save_dependency_graph(dependency_graph_path)
+        else:
+            # HybridAnalysisService doesn't have save_dependency_graph - save manually
+            from codewiki.src.utils import file_manager
+            file_manager.save_json({comp_id: comp.dict() for comp_id, comp in components.items()}, dependency_graph_path)
 
         # Build graph for traversal
         graph = build_graph_from_components(components)

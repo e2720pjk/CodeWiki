@@ -223,14 +223,19 @@ println(json)
         Returns:
             Data flow analysis results
         """
+        # Sanitize function_name to prevent script injection
+        import re
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', function_name):
+            raise ValueError(f"Invalid function name: {function_name}")
+
         script = (
             f"""
-import joern._
+ import joern._
 
-val cpg = loadCPG("""
+ val cpg = loadCPG("""
             + project_path
             + """)
-val method = cpg.method.name("""
+ val method = cpg.method.name("""
             + function_name
             + """).head
 
@@ -313,11 +318,11 @@ if (method != null) {{
 def test_joern_analyzer():
     """Test function to verify Joern analyzer works."""
     try:
-        analyzer = JoernAnalyzer()
+        _ = JoernAnalyzer()
         logger.info("✓ JoernAnalyzer initialized successfully")
         return True
-    except Exception as e:
-        logger.error(f"✗ JoernAnalyzer initialization failed: {e}")
+    except Exception:
+        logger.exception("✗ JoernAnalyzer initialization failed")
         return False
 
 

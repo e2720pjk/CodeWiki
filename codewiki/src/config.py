@@ -103,10 +103,9 @@ class Config:
             cluster_model: Clustering model
             fallback_model: Fallback model
 
-        Returns:
-            Config instance
+            Returns:
+                Config instance
         """
-        repo_name = os.path.basename(os.path.normpath(repo_path))
         base_output_dir = os.path.join(output_dir, "temp")
 
         return cls(

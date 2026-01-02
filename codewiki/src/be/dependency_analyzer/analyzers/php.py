@@ -21,12 +21,24 @@ PHP_PRIMITIVES: Set[str] = {
     "string", "int", "float", "bool", "array", "object", "callable",
     "iterable", "mixed", "void", "null", "false", "true", "never",
     "self", "static", "parent", "integer", "boolean", "double",
+    # PHP 8 built-in types
+    "resource",
+    # SPL interfaces
+    "OuterIterator", "RecursiveIterator", "SeekableIterator",
+    "SplObserver", "SplSubject",
+    # SPL classes
+    "SplDoublyLinkedList", "SplStack", "SplQueue", "SplHeap",
+    "SplMaxHeap", "SplMinHeap", "SplPriorityQueue", "SplFixedArray",
+    "ArrayIterator", "SplFileInfo", "SplFileObject", "DirectoryIterator",
     # Common PHP classes that are built-in
     "Exception", "Error", "Throwable", "Closure", "Generator",
     "Iterator", "IteratorAggregate", "Traversable", "ArrayAccess",
     "Serializable", "Countable", "JsonSerializable", "Stringable",
     "DateTime", "DateTimeInterface", "DateTimeImmutable", "DateInterval",
     "stdClass", "ArrayObject", "SplObjectStorage", "WeakReference",
+    # SPL exception classes
+    "BadFunctionCallException", "InvalidArgumentException",
+    "RuntimeException", "DomainException", "LogicException",
 }
 
 # Template file patterns to skip

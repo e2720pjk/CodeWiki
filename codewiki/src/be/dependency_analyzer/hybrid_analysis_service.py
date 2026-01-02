@@ -159,7 +159,7 @@ class HybridAnalysisService:
 
             # Extract cross-module relationships
             cross_module_edges = self._extract_cross_module_relationships(
-                ast_result.get("nodes", {})
+                ast_result
             )
 
             enhancement = {
@@ -200,7 +200,7 @@ class HybridAnalysisService:
         # Select a subset of important functions for data flow analysis
         important_functions = self._select_important_functions(ast_nodes, limit=20)
 
-        for func_name, func_info in important_functions.items():
+        for func_name, _func_info in important_functions.items():
             try:
                 df_result = self.joern_analyzer.extract_data_flow_sample(repo_path, func_name)
 
@@ -228,13 +228,13 @@ class HybridAnalysisService:
         return data_flows
 
     def _extract_cross_module_relationships(
-        self, ast_nodes: Dict[str, Any]
+        self, ast_result: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """
         Extract cross-module relationships that AST might miss.
 
         Args:
-            ast_nodes: AST nodes
+            ast_result: Full AST analysis result
 
         Returns:
             List of cross-module relationship data
@@ -242,7 +242,7 @@ class HybridAnalysisService:
         cross_module = []
 
         # Simple heuristic: identify calls that span different modules
-        relationships = ast_nodes.get("relationships", [])
+        relationships = ast_result.get("relationships", [])
 
         for rel in relationships:
             caller = rel.get("caller", "")

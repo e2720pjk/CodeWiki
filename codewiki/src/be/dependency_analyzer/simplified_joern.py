@@ -4,10 +4,11 @@ Simplified Joern Integration for Quick Win PoC
 This provides a minimal Joern integration that focuses on the core functionality
 without complex dependencies.
 """
-
+ 
 import logging
 import json
 import os
+import re
 import subprocess
 import tempfile
 import time
@@ -184,11 +185,8 @@ println(result.toJson.compactPrint)
                 try:
                     with open(py_file, "r", encoding="utf-8") as f:
                         content = f.read()
-                        # Simple regex for function definitions
-                        import re
-
                         for match in re.finditer(r"def\s+(\w+)\s*\(", content):
-                            line_num = content[: match.start()].count("\\n") + 1
+                            line_num = content[: match.start()].count("\n") + 1
                             functions.append(
                                 {
                                     "name": match.group(1),
@@ -219,11 +217,15 @@ println(result.toJson.compactPrint)
         if not self.setup_joern():
             return {"status": "error", "message": "Joern not available"}
 
-        script_content = f"""
-import joern._
+        # Validate function name to prevent injection
+        if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', function_name):
+            return {"status": "error", "message": f"Invalid function name: {function_name}"}
 
-val cpg = loadCPG(args(0))
-val method = cpg.method.name("{function_name}").headOption
+        script_content = f"""
+ import joern._
+
+ val cpg = loadCPG(args(0))
+ val method = cpg.method.name("{function_name}").headOption
 
 if (method.isDefined) {{
     val m = method.get

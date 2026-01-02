@@ -226,21 +226,6 @@ def generate_command(
         if use_joern:
             logger.info("🚀 Joern CPG analysis enabled for enhanced data flow insights")
 
-        # Create generator
-        generator = CLIDocumentationGenerator(
-            repo_path=repo_path,
-            output_dir=output_dir,
-            config={
-                "main_model": config.main_model,
-                "cluster_model": config.cluster_model,
-                "fallback_model": config.fallback_model,
-                "base_url": config.base_url,
-                "api_key": api_key,
-            },
-            verbose=verbose,
-            generate_html=github_pages,
-        )
-
         # Run generation
         job = generator.generate()
 
