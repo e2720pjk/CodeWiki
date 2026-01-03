@@ -94,6 +94,7 @@ packages = [
     "codewiki.src.be.dependency_analyzer.analyzers",
     "codewiki.src.be.dependency_analyzer.models",
     "codewiki.src.be.dependency_analyzer.utils",
+    "codewiki.src.be.dependency_analyzer.joern",
     "codewiki.src.fe"
 ]
 

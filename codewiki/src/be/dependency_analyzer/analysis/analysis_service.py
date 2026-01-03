@@ -18,6 +18,14 @@ from codewiki.src.be.dependency_analyzer.models.analysis import AnalysisResult
 from codewiki.src.be.dependency_analyzer.models.core import Repository
 
 
+from codewiki.src.be.dependency_analyzer.utils.patterns import (
+    is_entry_point_file,
+    is_entry_point_path,
+    has_high_connectivity_potential,
+    find_fallback_entry_points,
+    find_fallback_connectivity_files,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,8 +79,8 @@ class AnalysisService:
             
             # Limit number of files
             if len(code_files) > max_files:
-                code_files = code_files[:max_files]
-                logger.debug(f"Limited analysis to {max_files} files")
+                logger.debug(f"Selecting best {max_files} files from {len(code_files)} total files")
+                code_files = self._select_best_files(code_files, max_files)
             
             logger.debug(f"Analyzing {len(code_files)} files")
             
@@ -92,6 +100,16 @@ class AnalysisService:
         except Exception as e:
             logger.error(f"Local repository analysis failed: {str(e)}", exc_info=True)
             raise RuntimeError(f"Analysis failed: {str(e)}")
+
+    def analyze_repository_hybrid(
+        self,
+        repo_path: str,
+        max_files: int = 100,
+        languages: Optional[List[str]] = None,
+        include_data_flow: bool = False
+    ) -> Dict[str, Any]:
+        """Alias for analyze_local_repository to support hybrid fallback interface."""
+        return self.analyze_local_repository(repo_path, max_files, languages)
 
     def analyze_repository_full(
         self,
@@ -163,7 +181,7 @@ class AnalysisService:
 
         except Exception as e:
             logger.error(f"Analysis failed: {str(e)}", exc_info=True)
-            if "temp_dir" in locals() and Path(temp_dir).exists():
+            if temp_dir and Path(temp_dir).exists():
                 self._cleanup_repository(temp_dir)
             raise RuntimeError(f"Repository analysis failed: {str(e)}")
 
@@ -210,7 +228,7 @@ class AnalysisService:
             return result
 
         except Exception as e:
-            if temp_dir:
+            if temp_dir and Path(temp_dir).exists():
                 self._cleanup_repository(temp_dir)
             logger.error(f"Structure analysis failed for {github_url}: {str(e)}")
             logger.error(f"Traceback: {traceback.format_exc()}")
@@ -321,6 +339,53 @@ class AnalysisService:
     def _get_supported_languages(self) -> List[str]:
         """Get list of currently supported languages for analysis."""
         return ["python", "javascript", "typescript", "java", "csharp", "c", "cpp", "php"]
+
+    def _select_best_files(self, code_files: List[Any], max_files: int) -> List[Any]:
+        """
+        Select the most important files for analysis when max_files is exceeded.
+
+        Selection strategy:
+        1. Identify clear entry points (main.py, index.js, etc.)
+        2. Identify high-connectivity components (routers, services)
+        3. Fill remaining slots with remaining files
+        """
+        selected_files = []
+        remaining_files = code_files.copy()
+
+        # 1. Select entry points
+        entry_points = [
+            f
+            for f in remaining_files
+            if is_entry_point_file(f["name"]) or is_entry_point_path(f["path"])
+        ]
+        # Dedicate up to 30% for entry points initially
+        entry_limit = max(1, int(max_files * 0.3))
+        selected_files.extend(entry_points[:entry_limit])
+
+        for f in entry_points[:entry_limit]:
+            if f in remaining_files:
+                remaining_files.remove(f)
+
+        # 2. Select high connectivity files
+        high_conn = [
+            f
+            for f in remaining_files
+            if has_high_connectivity_potential(f["name"], f["path"])
+        ]
+        slots_left = max_files - len(selected_files)
+        conn_limit = max(1, slots_left)
+        selected_files.extend(high_conn[:conn_limit])
+
+        for f in high_conn[:conn_limit]:
+            if f in remaining_files:
+                remaining_files.remove(f)
+
+        # 3. Fill remaining
+        slots_left = max_files - len(selected_files)
+        if slots_left > 0:
+            selected_files.extend(remaining_files[:slots_left])
+
+        return selected_files
 
     def _cleanup_repository(self, temp_dir: str):
         """Clean up cloned repository."""

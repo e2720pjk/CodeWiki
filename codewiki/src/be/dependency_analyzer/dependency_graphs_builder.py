@@ -19,21 +19,13 @@ class DependencyGraphBuilder:
     def __init__(self, config: Config):
         self.config = config
 
-        # Initialize parser based on configuration
-        if config.use_joern:
-            try:
-                from codewiki.src.be.dependency_analyzer.hybrid_analysis_service import (
-                    HybridAnalysisService,
-                )
-
-                self.parser = HybridAnalysisService(enable_joern=True)
-                logger.info("🚀 Using Hybrid Analysis Service with Joern enhancement")
-            except Exception as e:
-                logger.warning(f"Joern not available, falling back to AST parser: {e}")
-                self.parser = DependencyParser(config.repo_path)
-        else:
-            self.parser = DependencyParser(config.repo_path)
-            logger.debug("Using standard AST parser")
+        # Initialize analyzer using Factory
+        from codewiki.src.be.dependency_analyzer.analysis.analyzer_factory import AnalyzerFactory, AnalyzerType
+        
+        analyzer_type = AnalyzerType.HYBRID if config.use_joern else AnalyzerType.AST
+        self.parser = AnalyzerFactory.create_analyzer(analyzer_type)
+        
+        logger.info(f"🚀 Using {self.parser.__class__.__name__}")
 
     def build_dependency_graph(self) -> tuple[Dict[str, Any], List[str]]:
         """
@@ -70,19 +62,44 @@ class DependencyGraphBuilder:
             components = self.parser.parse_repository(filtered_folders or [])
         else:
             # HybridAnalysisService uses different interface
+            # When using Joern/Hybrid, we want to analyze as much as possible unless explicitly limited
+            hybrid_limit = 1000 if self.config.use_joern else 100
             result = self.parser.analyze_repository_hybrid(
-                repo_path=self.config.repo_path, max_files=100
+                repo_path=self.config.repo_path, max_files=hybrid_limit
             )
             # Convert hybrid result to expected format
-            components = result.get("nodes", {})
+            raw_nodes = result.get("nodes", {})
+            components = {}
+            from codewiki.src.be.dependency_analyzer.models.core import Node, EnhancedNode
+            NodeClass = EnhancedNode if self.config.use_joern else Node
+            
+            # Helper to normalize nodes whether they come as Dict[id, data] or List[data]
+            node_items = []
+            if isinstance(raw_nodes, list):
+                # If list, assume list of node data dicts
+                for node_data in raw_nodes:
+                    node_id = node_data.get("id") or node_data.get("name")
+                    if node_id:
+                        node_items.append((node_id, node_data))
+            else:
+                # If dict, assume id -> data mapping
+                node_items = raw_nodes.items()
+
+            for node_id, node_data in node_items:
+                if isinstance(node_data, dict):
+                    try:
+                        components[node_id] = NodeClass(**node_data)
+                    except Exception as e:
+                        logger.warning(f"Failed to convert node {node_id} to {NodeClass.__name__} object: {e}")
+                else:
+                    components[node_id] = node_data
 
         # Save dependency graph
         if isinstance(self.parser, DependencyParser):
             self.parser.save_dependency_graph(dependency_graph_path)
         else:
             # HybridAnalysisService doesn't have save_dependency_graph - save manually
-            from codewiki.src.utils import file_manager
-            file_manager.save_json({comp_id: comp.dict() for comp_id, comp in components.items()}, dependency_graph_path)
+            file_manager.save_json({comp_id: comp.model_dump() for comp_id, comp in components.items()}, dependency_graph_path)
 
         # Build graph for traversal
         graph = build_graph_from_components(components)

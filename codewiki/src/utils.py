@@ -17,9 +17,14 @@ class FileManager:
     
     @staticmethod
     def save_json(data: Any, filepath: str) -> None:
-        """Save data as JSON to file."""
+        """Save data as JSON to file with support for sets."""
+        def default_serializer(obj):
+            if isinstance(obj, set):
+                return list(obj)
+            raise TypeError(f"Type {type(obj)} not serializable")
+
         with open(filepath, 'w') as f:
-            json.dump(data, f, indent=4)
+            json.dump(data, f, indent=4, default=default_serializer)
     
     @staticmethod
     def load_json(filepath: str) -> Optional[Dict[str, Any]]:

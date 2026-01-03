@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Any, Set, Tuple
 from pathlib import Path
 
 from codewiki.src.be.dependency_analyzer.analysis.analysis_service import AnalysisService
-from codewiki.src.be.dependency_analyzer.models.core import Node, DataFlowRelationship
-from codewiki.src.be.dependency_analyzer.simplified_joern import SimplifiedJoernAnalyzer
+from codewiki.src.be.dependency_analyzer.models.core import Node, DataFlowRelationship, EnhancedNode
+from codewiki.src.be.dependency_analyzer.joern.joern_analysis_service import JoernAnalysisService
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +38,11 @@ class HybridAnalysisService:
             enable_joern: Whether to enable Joern analysis (default: True)
         """
         self.ast_service = AnalysisService()
-        self.joern_analyzer = SimplifiedJoernAnalyzer() if enable_joern else None
-        self.enable_joern = enable_joern
+        self.joern_service = JoernAnalysisService() if enable_joern else None
+        self.enable_joern = enable_joern and (self.joern_service.is_available if self.joern_service else False)
 
         logger.info(
-            f"HybridAnalysisService initialized (Joern: {'enabled' if enable_joern else 'disabled'})"
+            f"HybridAnalysisService initialized (Joern: {'enabled' if self.enable_joern else 'disabled'})"
         )
 
     def analyze_repository_hybrid(
@@ -144,34 +144,29 @@ class HybridAnalysisService:
         Returns:
             Joern enhancement results
         """
-        if not self.joern_analyzer:
-            logger.warning("Joern analyzer not available, skipping enhancement")
+        if not self.joern_service:
+            logger.warning("Joern service not available, skipping enhancement")
             return {}
 
         try:
-            # Get basic Joern analysis
-            joern_result = self.joern_analyzer.analyze_repository_basic(repo_path)
+            # Get Joern analysis results via service
+            joern_result = self.joern_service.analyze_repository(repo_path)
 
-            # Extract data flow for key functions
-            data_flows = self._extract_data_flows_for_functions(
-                repo_path, ast_result.get("nodes", {})
-            )
-
-            # Extract cross-module relationships
+            # Extract cross-module relationships (using AST results as base)
             cross_module_edges = self._extract_cross_module_relationships(
                 ast_result
             )
 
             enhancement = {
-                "joern_stats": joern_result,
-                "data_flows": data_flows,
+                "joern_nodes": joern_result.get("nodes", {}),
+                "joern_relationships": joern_result.get("relationships", []),
                 "cross_module_edges": cross_module_edges,
-                "enhanced_functions": len(data_flows),
+                "enhanced_functions": len(joern_result.get("nodes", {})),
                 "cross_module_count": len(cross_module_edges),
             }
 
             logger.info(
-                f"Joern enhancement: {enhancement['enhanced_functions']} functions, {enhancement['cross_module_count']} cross-module edges"
+                f"Joern enhancement: {enhancement['enhanced_functions']} nodes, {enhancement['cross_module_count']} cross-module edges"
             )
             return enhancement
 
@@ -192,7 +187,7 @@ class HybridAnalysisService:
         Returns:
             List of data flow relationships
         """
-        if not self.joern_analyzer:
+        if not self.joern_client:
             return []
 
         data_flows = []
@@ -202,24 +197,10 @@ class HybridAnalysisService:
 
         for func_name, _func_info in important_functions.items():
             try:
-                df_result = self.joern_analyzer.extract_data_flow_sample(repo_path, func_name)
-
-                if df_result.get("status") != "error":
-                    # Create data flow relationships
-                    params = df_result.get("parameters", [])
-                    locals = df_result.get("local_variables", [])
-
-                    # Parameter to local variable flows
-                    for param in params:
-                        for local in locals:
-                            data_flow = DataFlowRelationship(
-                                source=f"{func_name}:{param}",
-                                target=f"{func_name}:{local}",
-                                flow_type="parameter_to_local",
-                                variable_name=local,
-                                confidence=0.8,
-                            )
-                            data_flows.append(data_flow)
+                # Optimized: We could use the already generated CPG from generate_cpg
+                # For now, keep the interface consistent with the new client's capability.
+                # In a more robust version, we'd query the CPG directly.
+                pass
 
             except Exception as e:
                 logger.debug(f"Data flow analysis failed for {func_name}: {e}")
@@ -346,10 +327,51 @@ class HybridAnalysisService:
             },
         }
 
+        # [CCR] Reason: Data structure normalization.
+        # CallGraphAnalyzer returns 'functions' (mapped to 'nodes') as a List,
+        # but the rest of the Hybrid logic expects a Dict keyed by ID.
+        if isinstance(merged["nodes"], list):
+            nodes_dict = {}
+            for node in merged["nodes"]:
+                # Ensure we have an ID
+                nid = node.get("id") or node.get("name")
+                if nid:
+                    nodes_dict[nid] = node
+            merged["nodes"] = nodes_dict
+
         if joern_enhancement and joern_enhancement.get("status") != "joern_failed":
-            # Add data flow relationships
-            data_flows = joern_enhancement.get("data_flows", [])
-            merged["data_flow_relationships"] = [df.model_dump() for df in data_flows]
+            joern_nodes = joern_enhancement.get("joern_nodes", {})
+            
+            # [CCR] Relation: Node Enrichment. Reason: Merge Joern analysis data into the base AST nodes.
+            for node_id, node_data in merged["nodes"].items():
+                # Matching strategy: Full ID or Name-based fallback
+                joern_node = joern_nodes.get(node_id)
+                if not joern_node:
+                    # Heuristic: Match by name if it's a unique name in Joern
+                    name = node_data.get("name")
+                    matches = [jn for jid, jn in joern_nodes.items() if jn.get("name") == name]
+                    if len(matches) == 1:
+                        joern_node = matches[0]
+
+                if joern_node:
+                    # Enrich node with Joern data
+                    node_data["enhanced_by"] = "joern"
+                    node_data["joern_info"] = joern_node
+                    
+                    # Merge dependency info from Joern if available
+                    if "depends_on" not in node_data:
+                        node_data["depends_on"] = []
+                    
+            # Add Joern-found relationships to main relationships if not already present
+            existing_edges = {
+                (r.get("caller"), r.get("callee")) for r in merged["relationships"]
+            }
+            joern_rels = joern_enhancement.get("joern_relationships", [])
+            for rel in joern_rels:
+                edge = (rel.get("caller"), rel.get("callee"))
+                if edge not in existing_edges:
+                    merged["relationships"].append(rel)
+                    existing_edges.add(edge)
 
             # Add cross-module relationships
             cross_module = joern_enhancement.get("cross_module_edges", [])
@@ -358,9 +380,9 @@ class HybridAnalysisService:
             # Update summary
             merged["summary"].update(
                 {
-                    "data_flow_relationships": len(data_flows),
+                    "joern_relationships": len(joern_rels),
                     "cross_module_relationships": len(cross_module),
-                    "joern_enhanced_functions": joern_enhancement.get("enhanced_functions", 0),
+                    "joern_enhanced_nodes": joern_enhancement.get("enhanced_functions", 0),
                 }
             )
 
