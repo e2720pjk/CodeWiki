@@ -29,7 +29,7 @@ from codewiki.cli.utils.repo_validator import (
 from codewiki.cli.utils.logging import create_logger
 from codewiki.cli.adapters.doc_generator import CLIDocumentationGenerator
 from codewiki.cli.utils.instructions import display_post_generation_instructions
-from codewiki.cli.models.job import GenerationOptions
+from codewiki.cli.models.job import GenerationOptions, AnalysisOptions
 
 
 @click.command(name="generate")
@@ -222,19 +222,23 @@ def generate_command(
         # Generate documentation
         logger.step("Generating documentation...", 4, 4)
         click.echo()
-        
-        # Create generation options
+
+        # Create generation options (generation workflow)
         generation_options = GenerationOptions(
             create_branch=create_branch,
             github_pages=github_pages,
             no_cache=no_cache,
             custom_output=output if output != "docs" else None,
+        )
+
+        # Create analysis options (analysis behavior)
+        analysis_options = AnalysisOptions(
             respect_gitignore=respect_gitignore,
             max_files=max_files,
             max_entry_points=max_entry_points,
-            max_connectivity_files=max_connectivity_files
+            max_connectivity_files=max_connectivity_files,
         )
-        
+
         # Create generator
         generator = CLIDocumentationGenerator(
             repo_path=repo_path,
@@ -248,7 +252,8 @@ def generate_command(
             },
             verbose=verbose,
             generate_html=github_pages,
-            generation_options=generation_options
+            generation_options=generation_options,
+            analysis_options=analysis_options,
         )
         
         # Run generation

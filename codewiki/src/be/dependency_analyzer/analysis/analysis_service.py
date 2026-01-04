@@ -118,7 +118,7 @@ class AnalysisService:
             logger.debug(f"Found {len(connectivity_files)} fallback connectivity files")
 
             # Analyze files
-            enable_parallel = getattr(self.config, 'enable_parallel_processing', True)
+            enable_parallel = getattr(self.config.analysis_options, 'enable_parallel_processing', True)
             result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path, enable_parallel)
 
             return {
@@ -286,9 +286,9 @@ class AnalysisService:
             f"Initializing RepoAnalyzer with include: {include_patterns}, exclude: {exclude_patterns}, respect_gitignore: {respect_gitignore}"
         )
         repo_analyzer = RepoAnalyzer(
-            include_patterns=include_patterns, 
+            include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
-            respect_gitignore=respect_gitignore,
+            respect_gitignore=self.config.analysis_options.respect_gitignore if self.config else respect_gitignore,
             repo_path=repo_dir
         )
         return repo_analyzer.analyze_repository_structure(repo_dir)

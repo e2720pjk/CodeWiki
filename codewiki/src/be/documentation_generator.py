@@ -141,13 +141,13 @@ class DocumentationGenerator:
         Returns:
             Updated module tree
         """
-        if not self.config.enable_parallel_processing or len(leaf_modules) <= 1:
+        if not self.config.analysis_options.enable_parallel_processing or len(leaf_modules) <= 1:
             # Fall back to sequential processing
             return await self.process_leaf_modules_sequential(leaf_modules, components, working_dir)
-        
-        logger.info(f"Processing {len(leaf_modules)} leaf modules in parallel with concurrency limit {self.config.concurrency_limit}")
-        
-        semaphore = asyncio.Semaphore(self.config.concurrency_limit)
+
+        logger.info(f"Processing {len(leaf_modules)} leaf modules in parallel with concurrency limit {self.config.analysis_options.concurrency_limit}")
+
+        semaphore = asyncio.Semaphore(self.config.analysis_options.concurrency_limit)
         
         async def process_with_semaphore(module_path: List[str], module_name: str) -> Tuple[str, bool]:
             """Process a single leaf module with semaphore control."""
@@ -344,7 +344,7 @@ class DocumentationGenerator:
         # Start performance tracking
         total_modules = len(processing_order)
         leaf_count = len(leaf_modules)
-        performance_tracker.start_tracking(total_modules, leaf_count, self.config.concurrency_limit)
+        performance_tracker.start_tracking(total_modules, leaf_count, self.config.analysis_options.concurrency_limit)
         
         # Process modules in dependency order
         final_module_tree = module_tree

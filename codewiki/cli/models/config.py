@@ -15,6 +15,7 @@ from codewiki.cli.utils.validation import (
     validate_api_key,
     validate_model_name,
 )
+from codewiki.cli.models.job import AnalysisOptions
 
 
 @dataclass
@@ -118,6 +119,14 @@ class Configuration:
         """
         from codewiki.src.config import Config
 
+        analysis_options = AnalysisOptions(
+            max_files=self.max_files,
+            max_entry_points=self.max_entry_points,
+            max_connectivity_files=self.max_connectivity_files,
+            enable_parallel_processing=self.enable_parallel_processing,
+            concurrency_limit=self.concurrency_limit,
+        )
+
         return Config.from_cli(
             repo_path=repo_path,
             output_dir=output_dir,
@@ -126,11 +135,7 @@ class Configuration:
             main_model=self.main_model,
             cluster_model=self.cluster_model,
             fallback_model=self.fallback_model,
-            max_files=self.max_files,
-            max_entry_points=self.max_entry_points,
-            max_connectivity_files=self.max_connectivity_files,
+            analysis_options=analysis_options,
             max_tokens_per_module=self.max_tokens_per_module,
             max_tokens_per_leaf=self.max_tokens_per_leaf,
-            enable_parallel_processing=self.enable_parallel_processing,
-            concurrency_limit=self.concurrency_limit,
         )

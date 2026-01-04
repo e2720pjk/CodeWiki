@@ -71,7 +71,7 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
-                retries=self.config.agent_retries,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[
                     read_code_components_tool,
                     str_replace_editor_tool,
@@ -84,7 +84,7 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
-                retries=self.config.agent_retries,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[read_code_components_tool, str_replace_editor_tool],
                 system_prompt=LEAF_SYSTEM_PROMPT.format(module_name=module_name),
             )

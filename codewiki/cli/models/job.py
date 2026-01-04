@@ -19,16 +19,26 @@ class JobStatus(str, Enum):
 
 
 @dataclass
+class AnalysisOptions:
+    """Configuration options for code analysis (new, post-refactor)"""
+    respect_gitignore: bool = False
+    use_joern: bool = False
+    max_files: int = 100
+    max_entry_points: int = 5
+    max_connectivity_files: int = 10
+    enable_parallel_processing: bool = True
+    concurrency_limit: int = 5
+    enable_llm_cache: bool = True
+    agent_retries: int = 3
+
+
+@dataclass
 class GenerationOptions:
-    """Options for documentation generation."""
+    """Job options for documentation generation (post-refactor)"""
     create_branch: bool = False
     github_pages: bool = False
     no_cache: bool = False
     custom_output: Optional[str] = None
-    respect_gitignore: bool = False
-    max_files: int = 100
-    max_entry_points: int = 5
-    max_connectivity_files: int = 10
 
 
 @dataclass
@@ -83,6 +93,7 @@ class DocumentationJob:
     files_generated: List[str] = field(default_factory=list)
     module_count: int = 0
     generation_options: GenerationOptions = field(default_factory=GenerationOptions)
+    analysis_options: AnalysisOptions = field(default_factory=AnalysisOptions)
     llm_config: Optional[LLMConfig] = None
     statistics: JobStatistics = field(default_factory=JobStatistics)
     
@@ -118,6 +129,7 @@ class DocumentationJob:
             "files_generated": self.files_generated,
             "module_count": self.module_count,
             "generation_options": asdict(self.generation_options),
+            "analysis_options": asdict(self.analysis_options),
             "llm_config": asdict(self.llm_config) if self.llm_config else None,
             "statistics": asdict(self.statistics),
         }
@@ -149,6 +161,10 @@ class DocumentationJob:
         if 'generation_options' in data:
             opts = data['generation_options']
             job.generation_options = GenerationOptions(**opts)
+        
+        if 'analysis_options' in data:
+            opts = data['analysis_options']
+            job.analysis_options = AnalysisOptions(**opts)
         
         if 'llm_config' in data and data['llm_config']:
             job.llm_config = LLMConfig(**data['llm_config'])
