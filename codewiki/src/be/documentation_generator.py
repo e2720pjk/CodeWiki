@@ -47,6 +47,7 @@ class DocumentationGenerator:
         """Create a metadata file with documentation generation information."""
         from datetime import datetime
 
+
         metadata = {
             "generation_info": {
                 "timestamp": datetime.now().isoformat(),
@@ -62,6 +63,9 @@ class DocumentationGenerator:
             },
             "files_generated": ["overview.md", "module_tree.json", "first_module_tree.json"],
         }
+
+        if performance_metrics is not None:
+            metadata["performance"] = performance_metrics.to_dict()
 
         # Add generated markdown files to the metadata
         try:
@@ -468,7 +472,7 @@ class DocumentationGenerator:
                 repo_name=module_name, repo_structure=json.dumps(repo_structure, indent=4)
             )
         )
-
+        
         try:
             parent_docs = call_llm(prompt, self.config)
 
@@ -500,7 +504,7 @@ class DocumentationGenerator:
             file_manager.ensure_directory(working_dir)
             first_module_tree_path = os.path.join(working_dir, FIRST_MODULE_TREE_FILENAME)
             module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
-
+            
             # Check if module tree exists
             if os.path.exists(first_module_tree_path):
                 logger.debug(f"Module tree found at {first_module_tree_path}")
@@ -509,17 +513,14 @@ class DocumentationGenerator:
                 logger.debug(f"Module tree not found at {module_tree_path}, clustering modules")
                 module_tree = cluster_modules(leaf_nodes, components, self.config)
                 file_manager.save_json(module_tree, first_module_tree_path)
-
+            
             file_manager.save_json(module_tree, module_tree_path)
-
+            
             logger.debug(f"Grouped components into {len(module_tree)} modules")
-
+            
             # Generate module documentation using dynamic programming approach
             # This processes leaf modules first, then parent modules
             working_dir = await self.generate_module_documentation(components, leaf_nodes)
-
-            # Create documentation metadata
-            self.create_documentation_metadata(working_dir, components, len(leaf_nodes))
 
             # Stop performance tracking and calculate metrics
             metrics = performance_tracker.stop_tracking()
@@ -528,10 +529,15 @@ class DocumentationGenerator:
                 f"{metrics.successful_modules}/{metrics.total_modules} modules successful"
             )
 
-            logger.debug(
-                "Documentation generation completed successfully using dynamic programming!"
+            # Create documentation metadata with performance metrics
+            self.create_documentation_metadata(
+                working_dir, components, len(leaf_nodes), performance_metrics=metrics
             )
-            logger.debug("Processing order: leaf modules → parent modules → repository overview")
+
+            logger.debug(
+                f"Documentation generation completed successfully using dynamic programming!"
+            )
+            logger.debug(f"Processing order: leaf modules → parent modules → repository overview")
             logger.debug(f"Documentation saved to: {working_dir}")
 
         except Exception as e:

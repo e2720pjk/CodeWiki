@@ -21,6 +21,7 @@ project_root = Path(__file__).parent.parent.parent
 @dataclass
 class ComparisonMetrics:
     """Metrics for comparing documentation between two versions."""
+
     functional_correctness: bool
     file_count_delta: int
     structure_compatibility: bool
@@ -30,6 +31,12 @@ class ComparisonMetrics:
     total_modules: int
     files_baseline: int
     files_current: int
+    generation_time_baseline: float = 0.0
+    generation_time_current: float = 0.0
+    time_delta: float = 0.0
+    time_delta_percent: float = 0.0
+    files_per_second_baseline: float = 0.0
+    files_per_second_current: float = 0.0
 
 
 def generate_report_for_version(version_tag: str, output_dir: Path, repo_path: Path) -> Path:
@@ -82,12 +89,15 @@ def generate_report_for_version(version_tag: str, output_dir: Path, repo_path: P
         env = os.environ.copy()
         env["PYTHONPATH"] = str(project_root)
 
+        # Make timeout configurable via environment variable
+        test_timeout = int(os.getenv("CODEWIKI_TEST_TIMEOUT", "600"))
+
         result = subprocess.run(
             cmd,
             cwd=worktree_dir,
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minutes timeout
+            timeout=test_timeout,
             env=env,
         )
 
@@ -164,9 +174,7 @@ def _validate_module_tree_schema(module_tree: Dict[str, Any]) -> bool:
     return True
 
 
-def calculate_metrics(
-    baseline_dir: Path, current_dir: Path
-) -> ComparisonMetrics:
+def calculate_metrics(baseline_dir: Path, current_dir: Path) -> ComparisonMetrics:
     """
     Calculate comparison metrics between baseline and current documentation.
 
@@ -231,9 +239,9 @@ def calculate_metrics(
     content_length_delta = current_length - baseline_length
 
     # Validate markdown
-    markdown_validity = _validate_markdown_files(
-        baseline_dir
-    ) and _validate_markdown_files(current_dir)
+    markdown_validity = _validate_markdown_files(baseline_dir) and _validate_markdown_files(
+        current_dir
+    )
 
     # Functional correctness - check if expected files exist
     expected_files = ["overview.md", "module_tree.json", "metadata.json"]
@@ -251,6 +259,36 @@ def calculate_metrics(
     if "generation_info" not in baseline_metadata or "generation_info" not in current_metadata:
         functional_correctness = False
 
+    # Extract performance metrics
+    generation_time_baseline = 0.0
+    generation_time_current = 0.0
+
+    if "performance" in baseline_metadata and "generation_info" in baseline_metadata["performance"]:
+        generation_time_baseline = baseline_metadata["performance"]["generation_info"].get(
+            "total_time_seconds", 0.0
+        )
+
+    if "performance" in current_metadata and "generation_info" in current_metadata["performance"]:
+        generation_time_current = current_metadata["performance"]["generation_info"].get(
+            "total_time_seconds", 0.0
+        )
+
+    # Calculate time deltas
+    time_delta = generation_time_current - generation_time_baseline
+    time_delta_percent = 0.0
+    if generation_time_baseline > 0:
+        time_delta_percent = (time_delta / generation_time_baseline) * 100
+
+    # Calculate files per second
+    files_per_second_baseline = 0.0
+    files_per_second_current = 0.0
+
+    if generation_time_baseline > 0:
+        files_per_second_baseline = files_baseline / generation_time_baseline
+
+    if generation_time_current > 0:
+        files_per_second_current = files_current / generation_time_current
+
     return ComparisonMetrics(
         functional_correctness=functional_correctness,
         file_count_delta=file_count_delta,
@@ -261,6 +299,12 @@ def calculate_metrics(
         total_modules=total_modules,
         files_baseline=files_baseline,
         files_current=files_current,
+        generation_time_baseline=generation_time_baseline,
+        generation_time_current=generation_time_current,
+        time_delta=time_delta,
+        time_delta_percent=time_delta_percent,
+        files_per_second_baseline=files_per_second_baseline,
+        files_per_second_current=files_per_second_current,
     )
 
 
@@ -302,7 +346,9 @@ def generate_comparison_report(
 
     lines.append("### Key Metrics")
     lines.append("")
-    lines.append(f"- **File Count:** {metrics.files_baseline} → {metrics.files_current} ({metrics.file_count_delta:+d})")
+    lines.append(
+        f"- **File Count:** {metrics.files_baseline} → {metrics.files_current} ({metrics.file_count_delta:+d})"
+    )
     lines.append(f"- **Content Length:** {metrics.content_length_delta:+d} characters")
     lines.append(f"- **Documentation Coverage:** {metrics.documentation_coverage:.2%}")
     lines.append(f"- **Total Modules:** {metrics.total_modules}")
@@ -355,9 +401,60 @@ def generate_comparison_report(
     if metrics.content_length_delta > 0:
         lines.append(f"✓ Documentation increased by {metrics.content_length_delta:+,} characters")
     elif metrics.content_length_delta < 0:
-        lines.append(f"⚠ Documentation decreased by {abs(metrics.content_length_delta):,} characters")
+        lines.append(
+            f"⚠ Documentation decreased by {abs(metrics.content_length_delta):,} characters"
+        )
     else:
         lines.append("= Content length unchanged")
+    lines.append("")
+
+    lines.append("## Performance Analysis")
+    lines.append("")
+
+    if metrics.generation_time_baseline > 0 and metrics.generation_time_current > 0:
+        lines.append(
+            f"**Baseline Time:** {metrics.generation_time_baseline:.2f} seconds ({metrics.files_per_second_baseline:.2f} files/second)"
+        )
+        lines.append(
+            f"**Current Time:** {metrics.generation_time_current:.2f} seconds ({metrics.files_per_second_current:.2f} files/second)"
+        )
+        lines.append(
+            f"**Time Delta:** {metrics.time_delta:+.2f} seconds ({metrics.time_delta_percent:+.1f}%)"
+        )
+        lines.append("")
+
+        if metrics.time_delta < 0:
+            lines.append(f"✓ Performance improved by {abs(metrics.time_delta_percent):.1f}%")
+        elif metrics.time_delta > 0:
+            lines.append(f"✗ Performance degraded by {metrics.time_delta_percent:.1f}%")
+        else:
+            lines.append("= Performance unchanged")
+
+        if metrics.files_per_second_current > metrics.files_per_second_baseline:
+            lines.append(
+                f"✓ Throughput increased by {(metrics.files_per_second_current / metrics.files_per_second_baseline - 1) * 100:.1f}%"
+            )
+        elif metrics.files_per_second_current < metrics.files_per_second_baseline:
+            lines.append(
+                f"✗ Throughput decreased by {(1 - metrics.files_per_second_current / metrics.files_per_second_baseline) * 100:.1f}%"
+            )
+    elif metrics.generation_time_baseline > 0:
+        lines.append(
+            f"**Baseline Time:** {metrics.generation_time_baseline:.2f} seconds ({metrics.files_per_second_baseline:.2f} files/second)"
+        )
+        lines.append(f"**Current Time:** Not available")
+        lines.append("")
+        lines.append("⚠ Performance metrics not available for current version")
+    elif metrics.generation_time_current > 0:
+        lines.append(f"**Baseline Time:** Not available")
+        lines.append(
+            f"**Current Time:** {metrics.generation_time_current:.2f} seconds ({metrics.files_per_second_current:.2f} files/second)"
+        )
+        lines.append("")
+        lines.append("⚠ Performance metrics not available for baseline version")
+    else:
+        lines.append("⚠ Performance metrics not available for either version")
+
     lines.append("")
 
     lines.append("## Recommendations")
@@ -376,7 +473,9 @@ def generate_comparison_report(
         lines.append("- Review generated markdown for content quality")
 
     if metrics.file_count_delta < -5:
-        lines.append(f"- ⚠ **Warning:** Significant decrease in file count ({metrics.file_count_delta})")
+        lines.append(
+            f"- ⚠ **Warning:** Significant decrease in file count ({metrics.file_count_delta})"
+        )
         lines.append("- Verify if this is expected behavior")
 
     if metrics.documentation_coverage < 0.5:

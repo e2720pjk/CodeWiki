@@ -64,12 +64,12 @@ def test_ab_comparison(temp_output_dirs, repo_path, caplog):
     baseline_version = os.getenv("CODEWIKI_BASELINE_VERSION", "v0.1.0")
     current_version = os.getenv("CODEWIKI_CURRENT_VERSION", "HEAD")
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"A/B Comparison Test")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"Baseline Version: {baseline_version}")
     print(f"Current Version: {current_version}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")
 
     # Step 1: Generate baseline documentation
     print(f"Generating baseline documentation for {baseline_version}...")
@@ -96,9 +96,9 @@ def test_ab_comparison(temp_output_dirs, repo_path, caplog):
         current_dir=current_docs_dir,
     )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Comparison Metrics:")
-    print("="*60)
+    print("=" * 60)
     print(f"Functional Correctness: {metrics.functional_correctness}")
     print(f"File Count Delta: {metrics.file_count_delta:+d}")
     print(f"Structure Compatibility: {metrics.structure_compatibility}")
@@ -108,7 +108,14 @@ def test_ab_comparison(temp_output_dirs, repo_path, caplog):
     print(f"Total Modules: {metrics.total_modules}")
     print(f"Files (Baseline): {metrics.files_baseline}")
     print(f"Files (Current): {metrics.files_current}")
-    print("="*60 + "\n")
+    print(
+        f"Generation Time (Baseline): {metrics.generation_time_baseline:.2f}s ({metrics.files_per_second_baseline:.2f} files/s)"
+    )
+    print(
+        f"Generation Time (Current): {metrics.generation_time_current:.2f}s ({metrics.files_per_second_current:.2f} files/s)"
+    )
+    print(f"Time Delta: {metrics.time_delta:+.2f}s ({metrics.time_delta_percent:+.1f}%)")
+    print("=" * 60 + "\n")
 
     # Step 4: Generate comparison report
     report = generate_comparison_report(
@@ -129,9 +136,9 @@ def test_ab_comparison(temp_output_dirs, repo_path, caplog):
     print("\n" + report)
 
     # Step 5: Assert on critical metrics
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Assertions:")
-    print("="*60)
+    print("=" * 60)
 
     # Critical: Functional correctness must pass
     assert metrics.functional_correctness, (
@@ -147,22 +154,27 @@ def test_ab_comparison(temp_output_dirs, repo_path, caplog):
 
     # Optional: File count should not decrease significantly
     if metrics.file_count_delta < -10:
-        pytest.fail(
-            f"File count decreased significantly: {metrics.file_count_delta} files"
-        )
+        pytest.fail(f"File count decreased significantly: {metrics.file_count_delta} files")
     print(f"✓ File count delta ({metrics.file_count_delta:+d}) within acceptable range")
 
     # Optional: Documentation coverage should be reasonable
     if metrics.documentation_coverage < 0.1:
-        pytest.fail(
-            f"Documentation coverage too low: {metrics.documentation_coverage:.2%}"
-        )
+        pytest.fail(f"Documentation coverage too low: {metrics.documentation_coverage:.2%}")
     print(f"✓ Documentation coverage ({metrics.documentation_coverage:.2%}) acceptable")
 
+    # Optional: Performance should not degrade significantly (>20% slower)
+    if metrics.generation_time_baseline > 0 and metrics.generation_time_current > 0:
+        if metrics.time_delta_percent > 20:
+            pytest.fail(
+                f"Performance degraded significantly: {metrics.time_delta_percent:.1f}% slower "
+                f"(baseline: {metrics.generation_time_baseline:.2f}s, current: {metrics.generation_time_current:.2f}s)"
+            )
+        print(f"✓ Performance change ({metrics.time_delta_percent:+.1f}%) within acceptable range")
+
     # Print report summary
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All assertions passed!")
-    print("="*60)
+    print("=" * 60)
 
 
 def test_generate_report_invalid_version(temp_output_dirs, repo_path):
@@ -194,12 +206,8 @@ def test_calculate_metrics_with_empty_dirs(temp_output_dirs):
         "files_generated": ["overview.md"],
     }
 
-    (baseline_dir / "metadata.json").write_text(
-        str(metadata).replace("'", '"'), encoding="utf-8"
-    )
-    (current_dir / "metadata.json").write_text(
-        str(metadata).replace("'", '"'), encoding="utf-8"
-    )
+    (baseline_dir / "metadata.json").write_text(str(metadata).replace("'", '"'), encoding="utf-8")
+    (current_dir / "metadata.json").write_text(str(metadata).replace("'", '"'), encoding="utf-8")
 
     # Create minimal module trees
     module_tree = {}
