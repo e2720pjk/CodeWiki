@@ -7,7 +7,6 @@ and provides CLI-specific functionality like progress reporting.
 
 from pathlib import Path
 from typing import Dict, Any, Optional
-import time
 import asyncio
 import os
 import logging
@@ -130,7 +129,7 @@ class CLIDocumentationGenerator:
             APIError: If LLM API call fails
         """
         self.job.start()
-        start_time = time.time()
+        # Removed: start_time variable - not currently used for performance tracking
 
         try:
             # Set CLI context for backend
@@ -159,7 +158,6 @@ class CLIDocumentationGenerator:
             self._finalize_job()
 
             # Complete job
-            generation_time = time.time() - start_time
             self.job.complete()
 
             return self.job

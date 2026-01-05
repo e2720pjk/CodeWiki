@@ -1,11 +1,7 @@
 import os
 import json
 import logging
-import argparse
-from dataclasses import dataclass, field
-from typing import Dict, List, Set, Tuple, Optional, Any, Union
-from pathlib import Path
-import re
+from typing import Dict, List, Set, Optional
 
 from codewiki.src.be.dependency_analyzer.analysis.analysis_service import AnalysisService
 from codewiki.src.be.dependency_analyzer.models.core import Node
@@ -32,25 +28,20 @@ class DependencyParser:
         logger.debug(f"Parsing repository at {self.repo_path}")
 
         # Pass respect_gitignore option if available in config
-        respect_gitignore = (
-            getattr(self.config, "respect_gitignore", False) if self.config else False
-        )
-        structure_result = self.analysis_service._analyze_structure(
+        respect_gitignore = self.config.analysis_options.respect_gitignore if self.config else False
+        # Analyze structure (result not currently used for call graph analysis)
+        self.analysis_service._analyze_structure(
             self.repo_path,
             include_patterns=None,
             exclude_patterns=None,
             respect_gitignore=respect_gitignore,
         )
 
-        call_graph_result = self.analysis_service._analyze_call_graph(
-            structure_result["file_tree"], self.repo_path
-        )
-
         # Use file limits from config if available
-        max_files = getattr(self.config, "max_files", 100) if self.config else 100
-        max_entry_points = getattr(self.config, "max_entry_points", 5) if self.config else 5
+        max_files = self.config.analysis_options.max_files if self.config else 100
+        max_entry_points = self.config.analysis_options.max_entry_points if self.config else 5
         max_connectivity_files = (
-            getattr(self.config, "max_connectivity_files", 10) if self.config else 10
+            self.config.analysis_options.max_connectivity_files if self.config else 10
         )
 
         # Use the public analyze_local_repository method with file limits
@@ -119,7 +110,6 @@ class DependencyParser:
         for rel_dict in relationships:
             caller_id = rel_dict.get("caller", "")
             callee_id = rel_dict.get("callee", "")
-            is_resolved = rel_dict.get("is_resolved", False)
 
             caller_component_id = component_id_mapping.get(caller_id)
 

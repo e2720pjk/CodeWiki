@@ -7,12 +7,9 @@ to the backend Config class when running documentation generation.
 """
 
 from dataclasses import dataclass, asdict
-from typing import Optional
-from pathlib import Path
 
 from codewiki.cli.utils.validation import (
     validate_url,
-    validate_api_key,
     validate_model_name,
 )
 from codewiki.cli.models.job import AnalysisOptions
@@ -62,7 +59,7 @@ class Configuration:
         validate_model_name(self.main_model)
         validate_model_name(self.cluster_model)
         validate_model_name(self.fallback_model)
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return asdict(self)
@@ -82,7 +79,7 @@ class Configuration:
             base_url=data.get("base_url", ""),
             main_model=data.get("main_model", ""),
             cluster_model=data.get("cluster_model", ""),
-            fallback_model=data.get('fallback_model', 'glm-4p5'),
+            fallback_model=data.get("fallback_model", "glm-4p5"),
             default_output=data.get("default_output", "docs"),
             max_files=data.get("max_files", 100),
             max_entry_points=data.get("max_entry_points", 5),
@@ -96,12 +93,9 @@ class Configuration:
     def is_complete(self) -> bool:
         """Check if all required fields are set."""
         return bool(
-            self.base_url and 
-            self.main_model and 
-            self.cluster_model and
-            self.fallback_model
+            self.base_url and self.main_model and self.cluster_model and self.fallback_model
         )
-    
+
     def to_backend_config(self, repo_path: str, output_dir: str, api_key: str):
         """
         Convert CLI Configuration to Backend Config.

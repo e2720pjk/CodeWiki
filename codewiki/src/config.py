@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 import argparse
 import os
-import sys
 from typing import Optional
 from dotenv import load_dotenv
 
@@ -121,7 +120,6 @@ class Config:
         if analysis_options is None:
             analysis_options = AnalysisOptions()
 
-        repo_name = os.path.basename(os.path.normpath(repo_path))
         base_output_dir = os.path.join(output_dir, "temp")
 
         return cls(

@@ -12,6 +12,7 @@ import json
 
 class JobStatus(str, Enum):
     """Documentation job status."""
+
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -21,6 +22,7 @@ class JobStatus(str, Enum):
 @dataclass
 class AnalysisOptions:
     """Configuration options for code analysis (new, post-refactor)"""
+
     respect_gitignore: bool = False
     use_joern: bool = False
     max_files: int = 100
@@ -35,6 +37,7 @@ class AnalysisOptions:
 @dataclass
 class GenerationOptions:
     """Job options for documentation generation (post-refactor)"""
+
     create_branch: bool = False
     github_pages: bool = False
     no_cache: bool = False
@@ -44,6 +47,7 @@ class GenerationOptions:
 @dataclass
 class JobStatistics:
     """Statistics for a documentation job."""
+
     total_files_analyzed: int = 0
     leaf_nodes: int = 0
     max_depth: int = 0
@@ -53,6 +57,7 @@ class JobStatistics:
 @dataclass
 class LLMConfig:
     """LLM configuration for a job."""
+
     main_model: str
     cluster_model: str
     base_url: str
@@ -62,7 +67,7 @@ class LLMConfig:
 class DocumentationJob:
     """
     Represents a documentation generation job.
-    
+
     Attributes:
         job_id: Unique job identifier
         repository_path: Absolute path to repository
@@ -80,6 +85,7 @@ class DocumentationJob:
         llm_config: LLM configuration used
         statistics: Job statistics
     """
+
     job_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     repository_path: str = ""
     repository_name: str = ""
@@ -96,23 +102,23 @@ class DocumentationJob:
     analysis_options: AnalysisOptions = field(default_factory=AnalysisOptions)
     llm_config: Optional[LLMConfig] = None
     statistics: JobStatistics = field(default_factory=JobStatistics)
-    
+
     def start(self):
         """Mark job as started."""
         self.status = JobStatus.RUNNING
         self.timestamp_start = datetime.now().isoformat()
-    
+
     def complete(self):
         """Mark job as completed."""
         self.status = JobStatus.COMPLETED
         self.timestamp_end = datetime.now().isoformat()
-    
+
     def fail(self, error_message: str):
         """Mark job as failed."""
         self.status = JobStatus.FAILED
         self.error_message = error_message
         self.timestamp_end = datetime.now().isoformat()
-    
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         data = {
@@ -134,43 +140,42 @@ class DocumentationJob:
             "statistics": asdict(self.statistics),
         }
         return data
-    
+
     def to_json(self) -> str:
         """Convert to JSON string."""
         return json.dumps(self.to_dict(), indent=2)
-    
+
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'DocumentationJob':
+    def from_dict(cls, data: Dict[str, Any]) -> "DocumentationJob":
         """Create from dictionary."""
         job = cls(
-            job_id=data.get('job_id', str(uuid.uuid4())),
-            repository_path=data.get('repository_path', ''),
-            repository_name=data.get('repository_name', ''),
-            output_directory=data.get('output_directory', ''),
-            commit_hash=data.get('commit_hash', ''),
-            branch_name=data.get('branch_name'),
-            timestamp_start=data.get('timestamp_start', datetime.now().isoformat()),
-            timestamp_end=data.get('timestamp_end'),
-            status=JobStatus(data.get('status', 'pending')),
-            error_message=data.get('error_message'),
-            files_generated=data.get('files_generated', []),
-            module_count=data.get('module_count', 0),
+            job_id=data.get("job_id", str(uuid.uuid4())),
+            repository_path=data.get("repository_path", ""),
+            repository_name=data.get("repository_name", ""),
+            output_directory=data.get("output_directory", ""),
+            commit_hash=data.get("commit_hash", ""),
+            branch_name=data.get("branch_name"),
+            timestamp_start=data.get("timestamp_start", datetime.now().isoformat()),
+            timestamp_end=data.get("timestamp_end"),
+            status=JobStatus(data.get("status", "pending")),
+            error_message=data.get("error_message"),
+            files_generated=data.get("files_generated", []),
+            module_count=data.get("module_count", 0),
         )
-        
-        # Parse nested objects
-        if 'generation_options' in data:
-            opts = data['generation_options']
-            job.generation_options = GenerationOptions(**opts)
-        
-        if 'analysis_options' in data:
-            opts = data['analysis_options']
-            job.analysis_options = AnalysisOptions(**opts)
-        
-        if 'llm_config' in data and data['llm_config']:
-            job.llm_config = LLMConfig(**data['llm_config'])
-        
-        if 'statistics' in data:
-            job.statistics = JobStatistics(**data['statistics'])
-        
-        return job
 
+        # Parse nested objects
+        if "generation_options" in data:
+            opts = data["generation_options"]
+            job.generation_options = GenerationOptions(**opts)
+
+        if "analysis_options" in data:
+            opts = data["analysis_options"]
+            job.analysis_options = AnalysisOptions(**opts)
+
+        if "llm_config" in data and data["llm_config"]:
+            job.llm_config = LLMConfig(**data["llm_config"])
+
+        if "statistics" in data:
+            job.statistics = JobStatistics(**data["statistics"])
+
+        return job
