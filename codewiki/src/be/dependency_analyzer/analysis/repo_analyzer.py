@@ -7,10 +7,12 @@ detailed file tree representations with filtering capabilities.
 
 import os
 import fnmatch
-import json
 from pathlib import Path
-from typing import Dict, List, Optional, Union
-from codewiki.src.be.dependency_analyzer.utils.patterns import DEFAULT_IGNORE_PATTERNS, DEFAULT_INCLUDE_PATTERNS
+from typing import Dict, List, Optional
+from codewiki.src.be.dependency_analyzer.utils.patterns import (
+    DEFAULT_IGNORE_PATTERNS,
+    DEFAULT_INCLUDE_PATTERNS,
+)
 
 
 class RepoAnalyzer:
@@ -31,7 +33,7 @@ class RepoAnalyzer:
         )
         self.respect_gitignore = respect_gitignore
         self.repo_path = repo_path
-        
+
         # Load gitignore patterns if requested
         if self.respect_gitignore and self.repo_path:
             self._load_gitignore_patterns()
@@ -45,14 +47,14 @@ class RepoAnalyzer:
             # pathspec not available, skip gitignore parsing
             self.gitignore_spec = None
             return
-            
+
         if not self.repo_path:
             self.gitignore_spec = None
             return
-            
-        gitignore_file = os.path.join(self.repo_path, '.gitignore')
+
+        gitignore_file = os.path.join(self.repo_path, ".gitignore")
         if os.path.exists(gitignore_file):
-            with open(gitignore_file, 'r') as f:
+            with open(gitignore_file, "r") as f:
                 lines = f.readlines()
             self.gitignore_spec = PathSpec.from_lines(GitWildMatchPattern, lines)
         else:
@@ -124,7 +126,11 @@ class RepoAnalyzer:
             return None
 
         result = build_tree(Path(repo_dir), Path(repo_dir))
-        return result if result is not None else {"type": "directory", "name": "", "path": "", "children": []}
+        return (
+            result
+            if result is not None
+            else {"type": "directory", "name": "", "path": "", "children": []}
+        )
 
     def _should_exclude_path(self, path: str, filename: str) -> bool:
         # Check default patterns first
@@ -137,14 +143,16 @@ class RepoAnalyzer:
                 return True
             if pattern in path.split("/"):
                 return True
-        
+
         # Check gitignore patterns if available
-        if (self.respect_gitignore and 
-            hasattr(self, 'gitignore_spec') and 
-            self.gitignore_spec is not None):
+        if (
+            self.respect_gitignore
+            and hasattr(self, "gitignore_spec")
+            and self.gitignore_spec is not None
+        ):
             if self.gitignore_spec.match_file(path):
                 return True
-        
+
         return False
 
     def _should_include_file(self, path: str, filename: str) -> bool:

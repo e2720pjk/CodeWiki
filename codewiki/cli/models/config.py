@@ -7,14 +7,12 @@ to the backend Config class when running documentation generation.
 """
 
 from dataclasses import dataclass, asdict
-from typing import Optional
-from pathlib import Path
 
 from codewiki.cli.utils.validation import (
     validate_url,
-    validate_api_key,
     validate_model_name,
 )
+from codewiki.cli.models.job import AnalysisOptions
 
 
 @dataclass
@@ -61,7 +59,7 @@ class Configuration:
         validate_model_name(self.main_model)
         validate_model_name(self.cluster_model)
         validate_model_name(self.fallback_model)
-    
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return asdict(self)
@@ -81,7 +79,7 @@ class Configuration:
             base_url=data.get("base_url", ""),
             main_model=data.get("main_model", ""),
             cluster_model=data.get("cluster_model", ""),
-            fallback_model=data.get('fallback_model', 'glm-4p5'),
+            fallback_model=data.get("fallback_model", "glm-4p5"),
             default_output=data.get("default_output", "docs"),
             max_files=data.get("max_files", 100),
             max_entry_points=data.get("max_entry_points", 5),
@@ -95,12 +93,9 @@ class Configuration:
     def is_complete(self) -> bool:
         """Check if all required fields are set."""
         return bool(
-            self.base_url and 
-            self.main_model and 
-            self.cluster_model and
-            self.fallback_model
+            self.base_url and self.main_model and self.cluster_model and self.fallback_model
         )
-    
+
     def to_backend_config(self, repo_path: str, output_dir: str, api_key: str):
         """
         Convert CLI Configuration to Backend Config.
@@ -118,6 +113,14 @@ class Configuration:
         """
         from codewiki.src.config import Config
 
+        analysis_options = AnalysisOptions(
+            max_files=self.max_files,
+            max_entry_points=self.max_entry_points,
+            max_connectivity_files=self.max_connectivity_files,
+            enable_parallel_processing=self.enable_parallel_processing,
+            concurrency_limit=self.concurrency_limit,
+        )
+
         return Config.from_cli(
             repo_path=repo_path,
             output_dir=output_dir,
@@ -126,11 +129,7 @@ class Configuration:
             main_model=self.main_model,
             cluster_model=self.cluster_model,
             fallback_model=self.fallback_model,
-            max_files=self.max_files,
-            max_entry_points=self.max_entry_points,
-            max_connectivity_files=self.max_connectivity_files,
+            analysis_options=analysis_options,
             max_tokens_per_module=self.max_tokens_per_module,
             max_tokens_per_leaf=self.max_tokens_per_leaf,
-            enable_parallel_processing=self.enable_parallel_processing,
-            concurrency_limit=self.concurrency_limit,
         )

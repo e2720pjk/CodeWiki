@@ -1,4 +1,5 @@
 from pydantic_ai import Agent
+
 # import logfire
 import logging
 import os
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 #     logfire_token = os.getenv('LOGFIRE_TOKEN')
 #     logfire_project = os.getenv('LOGFIRE_PROJECT_NAME', 'default')
 #     logfire_service = os.getenv('LOGFIRE_SERVICE_NAME', 'default')
-    
+
 #     if logfire_token:
 #         # Configure with explicit token (for Docker)
 #         logfire.configure(
@@ -28,54 +29,57 @@ logger = logging.getLogger(__name__)
 #             project_name=logfire_project,
 #             service_name=logfire_service,
 #         )
-    
+
 #     logfire.instrument_pydantic_ai()
 #     logger.debug(f"Logfire configured successfully for project: {logfire_project}")
-    
+
 # except Exception as e:
 #     logger.warning(f"Failed to configure logfire: {e}")
 
-# Local imports
-from codewiki.src.be.agent_tools.deps import CodeWikiDeps
-from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
-from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
-from codewiki.src.be.agent_tools.generate_sub_module_documentations import generate_sub_module_documentation_tool
-from codewiki.src.be.llm_services import create_fallback_models
-from codewiki.src.be.prompt_template import (
+# Local imports (placed after logging configuration)
+from codewiki.src.be.agent_tools.deps import CodeWikiDeps  # noqa: E402
+from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool  # noqa: E402
+from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool  # noqa: E402
+from codewiki.src.be.agent_tools.generate_sub_module_documentations import (  # noqa: E402
+    generate_sub_module_documentation_tool,
+)
+from codewiki.src.be.llm_services import create_fallback_models  # noqa: E402
+from codewiki.src.be.prompt_template import (  # noqa: E402
     SYSTEM_PROMPT,
     LEAF_SYSTEM_PROMPT,
     format_user_prompt,
 )
-from codewiki.src.be.utils import is_complex_module
-from codewiki.src.config import (
+from codewiki.src.be.utils import is_complex_module  # noqa: E402
+from codewiki.src.config import (  # noqa: E402
     Config,
     MODULE_TREE_FILENAME,
     OVERVIEW_FILENAME,
 )
-from codewiki.src.utils import file_manager
-from codewiki.src.be.dependency_analyzer.models.core import Node
+from codewiki.src.utils import file_manager  # noqa: E402
+from codewiki.src.be.dependency_analyzer.models.core import Node  # noqa: E402
 
 
 class AgentOrchestrator:
     """Orchestrates the AI agents for documentation generation."""
-    
+
     def __init__(self, config: Config):
         self.config = config
         self.fallback_models = create_fallback_models(config)
-    
-    def create_agent(self, module_name: str, components: Dict[str, Any],
-                    core_component_ids: List[str]) -> Agent:
+
+    def create_agent(
+        self, module_name: str, components: Dict[str, Any], core_component_ids: List[str]
+    ) -> Agent:
         """Create an appropriate agent based on module complexity."""
         if is_complex_module(components, core_component_ids):
             return Agent(
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
-                retries=self.config.agent_retries,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[
                     read_code_components_tool,
                     str_replace_editor_tool,
-                    generate_sub_module_documentation_tool
+                    generate_sub_module_documentation_tool,
                 ],
                 system_prompt=SYSTEM_PROMPT.format(module_name=module_name),
             )
@@ -84,23 +88,29 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
-                retries=self.config.agent_retries,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[read_code_components_tool, str_replace_editor_tool],
                 system_prompt=LEAF_SYSTEM_PROMPT.format(module_name=module_name),
             )
-    
-    async def process_module(self, module_name: str, components: Dict[str, Node], 
-                           core_component_ids: List[str], module_path: List[str], working_dir: str) -> Dict[str, Any]:
+
+    async def process_module(
+        self,
+        module_name: str,
+        components: Dict[str, Node],
+        core_component_ids: List[str],
+        module_path: List[str],
+        working_dir: str,
+    ) -> Dict[str, Any]:
         """Process a single module and generate its documentation."""
         logger.info(f"Processing module: {module_name}")
-        
+
         # Load or create module tree
         module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
         module_tree = file_manager.load_json(module_tree_path)
-        
+
         # Create agent
         agent = self.create_agent(module_name, components, core_component_ids)
-        
+
         # Create dependencies
         deps = CodeWikiDeps(
             absolute_docs_path=working_dir,
@@ -112,7 +122,7 @@ class AgentOrchestrator:
             module_tree=module_tree,
             max_depth=self.config.max_depth,
             current_depth=1,
-            config=self.config
+            config=self.config,
         )
 
         # check if overview docs already exists
@@ -126,17 +136,17 @@ class AgentOrchestrator:
         if os.path.exists(docs_path):
             logger.info(f"✓ Module docs already exists at {docs_path}")
             return module_tree
-        
+
         # Run agent
         try:
-            result = await agent.run(
+            await agent.run(
                 format_user_prompt(
                     module_name=module_name,
                     core_component_ids=core_component_ids,
                     components=components,
-                    module_tree=deps.module_tree
+                    module_tree=deps.module_tree,
                 ),
-                deps=deps
+                deps=deps,
             )
 
             # Save updated module tree
@@ -151,8 +161,12 @@ class AgentOrchestrator:
 
             # Check if it's a tool retry error and provide guidance
             if "exceeded max retries" in error_msg:
-                logger.error(f"Tool execution failed - LLM may be having difficulty generating valid tool calls.")
-                logger.error(f"Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM")
+                logger.error(
+                    "Tool execution failed - LLM may be having difficulty generating valid tool calls."
+                )
+                logger.error(
+                    "Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM"
+                )
 
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise

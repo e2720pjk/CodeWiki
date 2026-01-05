@@ -1,8 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import argparse
 import os
-import sys
+from typing import Optional
 from dotenv import load_dotenv
+
+from codewiki.cli.models.job import AnalysisOptions
 
 load_dotenv()
 
@@ -58,21 +60,10 @@ class Config:
     cluster_model: str
     fallback_model: str = FALLBACK_MODEL_1
     # Analysis options
-    respect_gitignore: bool = False
-    # File analysis limits
-    max_files: int = 100
-    max_entry_points: int = 5
-    max_connectivity_files: int = 10
+    analysis_options: AnalysisOptions = field(default_factory=AnalysisOptions)
     # Token configuration (keeping defaults as requested)
     max_tokens_per_module: int = MAX_TOKEN_PER_MODULE
     max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE
-    # Parallel processing configuration
-    enable_parallel_processing: bool = True
-    concurrency_limit: int = 5
-    # LLM caching configuration
-    enable_llm_cache: bool = True
-    # Agent retry configuration
-    agent_retries: int = 3
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> "Config":
@@ -91,9 +82,7 @@ class Config:
             main_model=MAIN_MODEL,
             cluster_model=CLUSTER_MODEL,
             fallback_model=FALLBACK_MODEL_1,
-            enable_parallel_processing=True,
-            concurrency_limit=5,
-            enable_llm_cache=True,
+            analysis_options=AnalysisOptions(),
         )
 
     @classmethod
@@ -106,14 +95,9 @@ class Config:
         main_model: str,
         cluster_model: str,
         fallback_model: str = FALLBACK_MODEL_1,
-        respect_gitignore: bool = False,
-        max_files: int = 100,
-        max_entry_points: int = 5,
-        max_connectivity_files: int = 10,
+        analysis_options: Optional[AnalysisOptions] = None,
         max_tokens_per_module: int = MAX_TOKEN_PER_MODULE,
         max_tokens_per_leaf: int = MAX_TOKEN_PER_LEAF_MODULE,
-        enable_parallel_processing: bool = True,
-        concurrency_limit: int = 5,
     ) -> "Config":
         """
         Create configuration for CLI context.
@@ -126,18 +110,16 @@ class Config:
             main_model: Primary model
             cluster_model: Clustering model
             fallback_model: Fallback model
-            max_files: Maximum number of files to analyze
-            max_entry_points: Maximum fallback entry points
-            max_connectivity_files: Maximum fallback connectivity files
+            analysis_options: Analysis options object
             max_tokens_per_module: Maximum tokens per module
             max_tokens_per_leaf: Maximum tokens per leaf module
-            enable_parallel_processing: Enable parallel processing
-            concurrency_limit: Maximum concurrent API calls
 
         Returns:
             Config instance
         """
-        repo_name = os.path.basename(os.path.normpath(repo_path))
+        if analysis_options is None:
+            analysis_options = AnalysisOptions()
+
         base_output_dir = os.path.join(output_dir, "temp")
 
         return cls(
@@ -151,13 +133,7 @@ class Config:
             main_model=main_model,
             cluster_model=cluster_model,
             fallback_model=fallback_model,
-            respect_gitignore=respect_gitignore,
-            max_files=max_files,
-            max_entry_points=max_entry_points,
-            max_connectivity_files=max_connectivity_files,
+            analysis_options=analysis_options,
             max_tokens_per_module=max_tokens_per_module,
             max_tokens_per_leaf=max_tokens_per_leaf,
-            enable_parallel_processing=enable_parallel_processing,
-            concurrency_limit=concurrency_limit,
-            agent_retries=3,
         )

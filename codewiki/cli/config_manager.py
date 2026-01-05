@@ -26,19 +26,19 @@ CONFIG_VERSION = "1.0"
 class ConfigManager:
     """
     Manages CodeWiki configuration with secure keyring storage for API keys.
-    
+
     Storage:
-        - API key: System keychain via keyring (macOS Keychain, Windows Credential Manager, 
+        - API key: System keychain via keyring (macOS Keychain, Windows Credential Manager,
                   Linux Secret Service)
         - Other settings: ~/.codewiki/config.json
     """
-    
+
     def __init__(self):
         """Initialize the configuration manager."""
         self._api_key: Optional[str] = None
         self._config: Optional[Configuration] = None
         self._keyring_available = self._check_keyring_available()
-    
+
     def _check_keyring_available(self) -> bool:
         """Check if system keyring is available."""
         try:
@@ -47,42 +47,42 @@ class ConfigManager:
             return True
         except KeyringError:
             return False
-    
+
     def load(self) -> bool:
         """
         Load configuration from file and keyring.
-        
+
         Returns:
             True if configuration exists, False otherwise
         """
         # Load from JSON file
         if not CONFIG_FILE.exists():
             return False
-        
+
         try:
             content = safe_read(CONFIG_FILE)
             data = json.loads(content)
-            
+
             # Validate version
-            if data.get('version') != CONFIG_VERSION:
+            if data.get("version") != CONFIG_VERSION:
                 # Could implement migration here
                 pass
-            
+
             self._config = Configuration.from_dict(data)
-            
+
             # Load API key from keyring
             try:
                 self._api_key = keyring.get_password(KEYRING_SERVICE, KEYRING_API_KEY_ACCOUNT)
             except KeyringError:
                 # Keyring unavailable, API key will be None
                 pass
-            
+
             return True
         except (json.JSONDecodeError, FileSystemError) as e:
             raise ConfigurationError(f"Failed to load configuration: {e}")
-    
+
     def save(
-        self, 
+        self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         main_model: Optional[str] = None,
@@ -92,11 +92,11 @@ class ConfigManager:
         enable_parallel_processing: Optional[bool] = None,
         concurrency_limit: Optional[int] = None,
         max_tokens_per_module: Optional[int] = None,
-        max_tokens_per_leaf: Optional[int] = None
+        max_tokens_per_leaf: Optional[int] = None,
     ):
         """
         Save configuration to file and keyring.
-        
+
         Args:
             api_key: API key (stored in keyring)
             base_url: LLM API base URL
@@ -114,7 +114,7 @@ class ConfigManager:
             ensure_directory(CONFIG_DIR)
         except FileSystemError as e:
             raise ConfigurationError(f"Cannot create config directory: {e}")
-        
+
         # Load existing config or create new
         if self._config is None:
             if CONFIG_FILE.exists():
@@ -125,9 +125,9 @@ class ConfigManager:
                     main_model="",
                     cluster_model="",
                     fallback_model="glm-4p5",
-                    default_output="docs"
+                    default_output="docs",
                 )
-        
+
         # Update fields if provided
         if base_url is not None:
             self._config.base_url = base_url
@@ -143,16 +143,16 @@ class ConfigManager:
             self._config.enable_parallel_processing = enable_parallel_processing
         if concurrency_limit is not None:
             self._config.concurrency_limit = concurrency_limit
-        
+
         if max_tokens_per_module is not None:
             self._config.max_tokens_per_module = max_tokens_per_module
-        
+
         if max_tokens_per_leaf is not None:
             self._config.max_tokens_per_leaf = max_tokens_per_leaf
-        
+
         # Validate configuration
         self._config.validate()
-        
+
         # Save API key to keyring
         if api_key is not None:
             self._api_key = api_key
@@ -164,22 +164,19 @@ class ConfigManager:
                     f"System keychain unavailable: {e}\n"
                     f"Please ensure your system keychain is properly configured."
                 )
-        
+
         # Save non-sensitive config to JSON
-        config_data = {
-            "version": CONFIG_VERSION,
-            **self._config.to_dict()
-        }
-        
+        config_data = {"version": CONFIG_VERSION, **self._config.to_dict()}
+
         try:
             safe_write(CONFIG_FILE, json.dumps(config_data, indent=2))
         except FileSystemError as e:
             raise ConfigurationError(f"Failed to save configuration: {e}")
-    
+
     def get_api_key(self) -> Optional[str]:
         """
         Get API key from keyring.
-        
+
         Returns:
             API key or None if not set
         """
@@ -188,35 +185,35 @@ class ConfigManager:
                 self._api_key = keyring.get_password(KEYRING_SERVICE, KEYRING_API_KEY_ACCOUNT)
             except KeyringError:
                 pass
-        
+
         return self._api_key
-    
+
     def get_config(self) -> Optional[Configuration]:
         """
         Get current configuration.
-        
+
         Returns:
             Configuration object or None if not loaded
         """
         return self._config
-    
+
     def is_configured(self) -> bool:
         """
         Check if configuration is complete and valid.
-        
+
         Returns:
             True if configured, False otherwise
         """
         if self._config is None:
             return False
-        
+
         # Check if API key is set
         if self.get_api_key() is None:
             return False
-        
+
         # Check if config is complete
         return self._config.is_complete()
-    
+
     def delete_api_key(self):
         """Delete API key from keyring."""
         try:
@@ -224,26 +221,25 @@ class ConfigManager:
             self._api_key = None
         except KeyringError:
             pass
-    
+
     def clear(self):
         """Clear all configuration (file and keyring)."""
         # Delete API key from keyring
         self.delete_api_key()
-        
+
         # Delete config file
         if CONFIG_FILE.exists():
             CONFIG_FILE.unlink()
-        
+
         self._config = None
         self._api_key = None
-    
+
     @property
     def keyring_available(self) -> bool:
         """Check if keyring is available."""
         return self._keyring_available
-    
+
     @property
     def config_file_path(self) -> Path:
         """Get configuration file path."""
         return CONFIG_FILE
-

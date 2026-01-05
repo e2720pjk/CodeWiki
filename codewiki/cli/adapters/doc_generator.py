@@ -7,7 +7,6 @@ and provides CLI-specific functionality like progress reporting.
 
 from pathlib import Path
 from typing import Dict, Any, Optional
-import time
 import asyncio
 import os
 import logging
@@ -15,7 +14,7 @@ import sys
 
 
 from codewiki.cli.utils.progress import ProgressTracker
-from codewiki.cli.models.job import DocumentationJob, LLMConfig, GenerationOptions
+from codewiki.cli.models.job import DocumentationJob, LLMConfig, GenerationOptions, AnalysisOptions
 from codewiki.cli.utils.errors import APIError
 
 # Import backend modules
@@ -39,6 +38,7 @@ class CLIDocumentationGenerator:
         verbose: bool = False,
         generate_html: bool = False,
         generation_options: Optional["GenerationOptions"] = None,
+        analysis_options: Optional["AnalysisOptions"] = None,
     ):
         """
         Initialize the CLI documentation generator.
@@ -49,6 +49,8 @@ class CLIDocumentationGenerator:
             config: LLM configuration
             verbose: Enable verbose output
             generate_html: Whether to generate HTML viewer
+            generation_options: Generation workflow options
+            analysis_options: Analysis behavior options
         """
         self.repo_path = repo_path
         self.output_dir = output_dir
@@ -56,6 +58,7 @@ class CLIDocumentationGenerator:
         self.verbose = verbose
         self.generate_html = generate_html
         self.generation_options = generation_options or GenerationOptions()
+        self.analysis_options = analysis_options or AnalysisOptions()
         self.progress_tracker = ProgressTracker(total_stages=5, verbose=verbose)
         self.job = DocumentationJob()
 
@@ -63,6 +66,8 @@ class CLIDocumentationGenerator:
         self.job.repository_path = str(repo_path)
         self.job.repository_name = repo_path.name
         self.job.output_directory = str(output_dir)
+        self.job.generation_options = self.generation_options
+        self.job.analysis_options = self.analysis_options
         self.job.llm_config = LLMConfig(
             main_model=config.get("main_model", ""),
             cluster_model=config.get("cluster_model", ""),
@@ -124,7 +129,7 @@ class CLIDocumentationGenerator:
             APIError: If LLM API call fails
         """
         self.job.start()
-        start_time = time.time()
+        # Removed: start_time variable - not currently used for performance tracking
 
         try:
             # Set CLI context for backend
@@ -139,12 +144,7 @@ class CLIDocumentationGenerator:
                 main_model=self.config.get("main_model"),
                 cluster_model=self.config.get("cluster_model"),
                 fallback_model=self.config.get("fallback_model"),
-                respect_gitignore=self.generation_options.respect_gitignore
-                if self.generation_options
-                else False,
-                max_files=self.generation_options.max_files,
-                max_entry_points=self.generation_options.max_entry_points,
-                max_connectivity_files=self.generation_options.max_connectivity_files,
+                analysis_options=self.analysis_options,
             )
 
             # Run backend documentation generation
@@ -158,7 +158,6 @@ class CLIDocumentationGenerator:
             self._finalize_job()
 
             # Complete job
-            generation_time = time.time() - start_time
             self.job.complete()
 
             return self.job
