@@ -8,6 +8,7 @@ across different programming languages in a repository.
 
 from typing import Dict, List
 import logging
+import os
 import traceback
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -72,7 +73,8 @@ class CallGraphAnalyzer:
         self.call_relationships = []
 
         # Process languages in parallel
-        max_workers = min(4, len(files_by_language))  # Conservative limit
+        max_workers = min(os.cpu_count() or 4, len(files_by_language), 8)
+        logger.debug(f"Using {max_workers} workers for parallel analysis (CPU cores: {os.cpu_count()}, language groups: {len(files_by_language)})")
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit tasks for each language group
             future_to_language = {

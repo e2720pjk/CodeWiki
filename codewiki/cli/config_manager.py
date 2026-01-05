@@ -93,6 +93,7 @@ class ConfigManager:
         concurrency_limit: Optional[int] = None,
         max_tokens_per_module: Optional[int] = None,
         max_tokens_per_leaf: Optional[int] = None,
+        cache_size: Optional[int] = None,
     ):
         """
         Save configuration to file and keyring.
@@ -108,6 +109,7 @@ class ConfigManager:
             concurrency_limit: Maximum concurrent API calls (1-10)
             max_tokens_per_module: Maximum tokens per module
             max_tokens_per_leaf: Maximum tokens per leaf module
+            cache_size: LLM cache size (number of cached prompts)
         """
         # Ensure config directory exists
         try:
@@ -149,6 +151,9 @@ class ConfigManager:
 
         if max_tokens_per_leaf is not None:
             self._config.max_tokens_per_leaf = max_tokens_per_leaf
+
+        if cache_size is not None:
+            self._config.cache_size = cache_size
 
         # Validate configuration
         self._config.validate()

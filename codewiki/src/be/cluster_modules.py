@@ -4,13 +4,15 @@ import logging
 import traceback
 import ast
 
-logger = logging.getLogger(__name__)
+from codewiki.src.be.logging_config import get_logger
 
-from codewiki.src.be.dependency_analyzer.models.core import Node  # noqa: E402
-from codewiki.src.be.llm_services import call_llm  # noqa: E402
-from codewiki.src.be.utils import count_tokens  # noqa: E402
-from codewiki.src.config import MAX_TOKEN_PER_MODULE, Config  # noqa: E402
-from codewiki.src.be.prompt_template import format_cluster_prompt  # noqa: E402
+logger = get_logger(__name__)
+
+from codewiki.src.be.dependency_analyzer.models.core import Node
+from codewiki.src.be.llm_services import call_llm
+from codewiki.src.be.utils import count_tokens
+from codewiki.src.config import MAX_TOKEN_PER_MODULE, Config
+from codewiki.src.be.prompt_template import format_cluster_prompt
 
 
 def format_potential_core_components(

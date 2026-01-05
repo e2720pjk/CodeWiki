@@ -32,6 +32,7 @@ class AnalysisOptions:
     concurrency_limit: int = 5
     enable_llm_cache: bool = True
     agent_retries: int = 3
+    cache_size: int = 1000
 
 
 @dataclass
