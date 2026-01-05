@@ -1,21 +1,24 @@
-from typing import List, Dict, Any, Optional
-from collections import defaultdict
+# Standard library imports
+import ast
 import logging
 import traceback
-import ast
+from collections import defaultdict
+from typing import Any, Dict, List, Optional
 
-logger = logging.getLogger(__name__)
+# Project logging configuration
+from codewiki.src.be.logging_config import get_logger
 
-from codewiki.src.be.dependency_analyzer.models.core import Node  # noqa: E402
-from codewiki.src.be.llm_services import call_llm  # noqa: E402
-from codewiki.src.be.utils import count_tokens  # noqa: E402
-from codewiki.src.config import MAX_TOKEN_PER_MODULE, Config  # noqa: E402
-from codewiki.src.be.prompt_template import format_cluster_prompt  # noqa: E402
+logger = get_logger(__name__)
+
+# Project module imports
+from codewiki.src.be.dependency_analyzer.models.core import Node
+from codewiki.src.be.llm_services import call_llm
+from codewiki.src.be.prompt_template import format_cluster_prompt
+from codewiki.src.be.utils import count_tokens
+from codewiki.src.config import MAX_TOKEN_PER_MODULE, Config
 
 
-def format_potential_core_components(
-    leaf_nodes: List[str], components: Dict[str, Node]
-) -> tuple[str, str]:
+def format_potential_core_components(leaf_nodes: List[str], components: Dict[str, Node]) -> tuple[str, str]:
     """
     Format the potential core components into a string that can be used in the prompt.
     """
@@ -58,8 +61,8 @@ def cluster_modules(
     """
     if current_module_path is None:
         current_module_path = []
-    potential_core_components, potential_core_components_with_code = (
-        format_potential_core_components(leaf_nodes, components)
+    potential_core_components, potential_core_components_with_code = format_potential_core_components(
+        leaf_nodes, components
     )
 
     if count_tokens(potential_core_components_with_code) <= MAX_TOKEN_PER_MODULE:
@@ -68,22 +71,16 @@ def cluster_modules(
         )
         return {}
 
-    prompt = format_cluster_prompt(
-        potential_core_components, current_module_tree, current_module_name
-    )
+    prompt = format_cluster_prompt(potential_core_components, current_module_tree, current_module_name)
     response = call_llm(prompt, config, model=config.cluster_model)
 
     # parse the response
     try:
         if "<GROUPED_COMPONENTS>" not in response or "</GROUPED_COMPONENTS>" not in response:
-            logger.error(
-                f"Invalid LLM response format - missing component tags: {response[:200]}..."
-            )
+            logger.error(f"Invalid LLM response format - missing component tags: {response[:200]}...")
             return {}
 
-        response_content = response.split("<GROUPED_COMPONENTS>")[1].split("</GROUPED_COMPONENTS>")[
-            0
-        ]
+        response_content = response.split("<GROUPED_COMPONENTS>")[1].split("</GROUPED_COMPONENTS>")[0]
         module_tree = ast.literal_eval(response_content)
 
         if not isinstance(module_tree, dict):

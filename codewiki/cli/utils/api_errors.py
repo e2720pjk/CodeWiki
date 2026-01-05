@@ -3,6 +3,7 @@ LLM API error handling utilities with fail-fast behavior.
 """
 
 from typing import Optional
+
 import click
 
 from codewiki.cli.utils.errors import APIError
@@ -12,9 +13,7 @@ class APIErrorHandler:
     """Handler for LLM API errors with fail-fast behavior."""
 
     @staticmethod
-    def handle_api_error(
-        error: Exception, context: Optional[str] = None, fail_fast: bool = True
-    ) -> APIError:
+    def handle_api_error(error: Exception, context: Optional[str] = None, fail_fast: bool = True) -> APIError:
         """
         Handle LLM API error and convert to APIError.
 

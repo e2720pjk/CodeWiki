@@ -4,6 +4,7 @@ Progress indicator utilities for CLI.
 
 import time
 from typing import Optional
+
 import click
 
 

@@ -2,17 +2,17 @@
 Thread-safe tree-sitter parser pool for parallel dependency analysis.
 """
 
+import logging
 import threading
 from typing import Dict, Optional
-from tree_sitter import Parser, Language
+
+import tree_sitter_c
+import tree_sitter_c_sharp
+import tree_sitter_cpp
+import tree_sitter_java
 import tree_sitter_javascript
 import tree_sitter_typescript
-import tree_sitter_java
-import tree_sitter_c
-import tree_sitter_cpp
-import tree_sitter_c_sharp
-
-import logging
+from tree_sitter import Language, Parser
 
 logger = logging.getLogger(__name__)
 

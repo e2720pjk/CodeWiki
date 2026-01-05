@@ -5,13 +5,13 @@ Configuration manager with keyring integration for secure credential storage.
 import json
 from pathlib import Path
 from typing import Optional
+
 import keyring
 from keyring.errors import KeyringError
 
 from codewiki.cli.models.config import Configuration
 from codewiki.cli.utils.errors import ConfigurationError, FileSystemError
-from codewiki.cli.utils.fs import ensure_directory, safe_write, safe_read
-
+from codewiki.cli.utils.fs import ensure_directory, safe_read, safe_write
 
 # Keyring configuration
 KEYRING_SERVICE = "codewiki"
@@ -93,6 +93,7 @@ class ConfigManager:
         concurrency_limit: Optional[int] = None,
         max_tokens_per_module: Optional[int] = None,
         max_tokens_per_leaf: Optional[int] = None,
+        cache_size: Optional[int] = None,
     ):
         """
         Save configuration to file and keyring.
@@ -108,6 +109,7 @@ class ConfigManager:
             concurrency_limit: Maximum concurrent API calls (1-10)
             max_tokens_per_module: Maximum tokens per module
             max_tokens_per_leaf: Maximum tokens per leaf module
+            cache_size: LLM cache size (number of entries)
         """
         # Ensure config directory exists
         try:
@@ -150,6 +152,9 @@ class ConfigManager:
         if max_tokens_per_leaf is not None:
             self._config.max_tokens_per_leaf = max_tokens_per_leaf
 
+        if cache_size is not None:
+            self._config.cache_size = cache_size
+
         # Validate configuration
         self._config.validate()
 
@@ -161,8 +166,7 @@ class ConfigManager:
             except KeyringError as e:
                 # Fallback: warn about keyring unavailability
                 raise ConfigurationError(
-                    f"System keychain unavailable: {e}\n"
-                    f"Please ensure your system keychain is properly configured."
+                    f"System keychain unavailable: {e}\n" f"Please ensure your system keychain is properly configured."
                 )
 
         # Save non-sensitive config to JSON

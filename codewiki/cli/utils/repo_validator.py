@@ -2,13 +2,12 @@
 Repository validation utilities for documentation generation.
 """
 
-from pathlib import Path
-from typing import Tuple, List
 import os
+from pathlib import Path
+from typing import List, Tuple
 
 from codewiki.cli.utils.errors import RepositoryError
-from codewiki.cli.utils.validation import validate_repository_path, detect_supported_languages
-
+from codewiki.cli.utils.validation import detect_supported_languages, validate_repository_path
 
 # Supported file extensions by language
 SUPPORTED_EXTENSIONS = {
@@ -91,9 +90,7 @@ def check_writable_output(output_dir: Path) -> Path:
 
         # Check if writable
         if not os.access(output_dir, os.W_OK):
-            raise RepositoryError(
-                f"Output directory is not writable: {output_dir}\n\n" f"Try: chmod u+w {output_dir}"
-            )
+            raise RepositoryError(f"Output directory is not writable: {output_dir}\n\n" f"Try: chmod u+w {output_dir}")
     else:
         # Check if parent is writable
         parent = output_dir.parent
@@ -102,8 +99,7 @@ def check_writable_output(output_dir: Path) -> Path:
 
         if not os.access(parent, os.W_OK):
             raise RepositoryError(
-                f"Cannot create output directory (parent not writable): {parent}\n\n"
-                f"Try: chmod u+w {parent}"
+                f"Cannot create output directory (parent not writable): {parent}\n\n" f"Try: chmod u+w {parent}"
             )
 
     return output_dir

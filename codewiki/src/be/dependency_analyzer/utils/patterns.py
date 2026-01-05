@@ -5,7 +5,7 @@ This module contains patterns used to identify entry points, high-connectivity f
 and function definitions across multiple programming languages.
 """
 
-from typing import List, Dict
+from typing import Dict, List
 
 DEFAULT_IGNORE_PATTERNS = {
     ".github",
@@ -459,9 +459,7 @@ def get_function_patterns_for_language(language: str) -> list:
     Returns:
         List of function definition patterns for the language
     """
-    return FUNCTION_DEFINITION_PATTERNS.get(
-        language.lower(), FUNCTION_DEFINITION_PATTERNS["general"]
-    )
+    return FUNCTION_DEFINITION_PATTERNS.get(language.lower(), FUNCTION_DEFINITION_PATTERNS["general"])
 
 
 def is_entry_point_file(filename: str) -> bool:

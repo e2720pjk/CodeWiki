@@ -6,13 +6,14 @@ along with their dependency relationships (use, extends, implements, new, static
 """
 
 import logging
-from typing import List, Optional, Tuple, Dict, Set
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import Dict, List, Optional, Set, Tuple
 
-from tree_sitter import Parser, Language
 import tree_sitter_php
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from tree_sitter import Language, Parser
+
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 
 logger = logging.getLogger(__name__)
 
@@ -250,11 +251,7 @@ class TreeSitterPHPAnalyzer:
                     alias_node = self._find_child_by_type(child, "namespace_aliasing_clause")
 
                     if name_node:
-                        fqn = (
-                            f"{prefix}\\{name_node.text.decode()}"
-                            if prefix
-                            else name_node.text.decode()
-                        )
+                        fqn = f"{prefix}\\{name_node.text.decode()}" if prefix else name_node.text.decode()
                         alias = None
                         if alias_node:
                             alias_name = self._find_child_by_type(alias_node, "name")
@@ -265,9 +262,9 @@ class TreeSitterPHPAnalyzer:
             # Handle simple use: use App\User; or use App\User as U;
             for child in node.children:
                 if child.type == "namespace_use_clause":
-                    name_node = self._find_child_by_type(
-                        child, "qualified_name"
-                    ) or self._find_child_by_type(child, "namespace_name")
+                    name_node = self._find_child_by_type(child, "qualified_name") or self._find_child_by_type(
+                        child, "namespace_name"
+                    )
                     alias_node = self._find_child_by_type(child, "namespace_aliasing_clause")
 
                     if name_node:
@@ -295,8 +292,7 @@ class TreeSitterPHPAnalyzer:
         if node.type == "class_declaration":
             # Check for abstract class
             is_abstract = any(
-                c.type == "abstract_modifier"
-                or (c.type == "modifier" and c.text.decode() == "abstract")
+                c.type == "abstract_modifier" or (c.type == "modifier" and c.text.decode() == "abstract")
                 for c in node.children
             )
             node_type = "abstract class" if is_abstract else "class"
@@ -425,9 +421,7 @@ class TreeSitterPHPAnalyzer:
         # 4. Object creation (new)
         if node.type == "object_creation_expression":
             containing_class = self._find_containing_class_name(node)
-            type_node = self._find_child_by_type(node, "name") or self._find_child_by_type(
-                node, "qualified_name"
-            )
+            type_node = self._find_child_by_type(node, "name") or self._find_child_by_type(node, "qualified_name")
             if type_node:
                 created_type = type_node.text.decode()
                 if not self._is_primitive(created_type) and containing_class:
@@ -444,9 +438,7 @@ class TreeSitterPHPAnalyzer:
         # 5. Static method calls (::)
         if node.type == "scoped_call_expression":
             containing_class = self._find_containing_class_name(node)
-            scope_node = self._find_child_by_type(node, "name") or self._find_child_by_type(
-                node, "qualified_name"
-            )
+            scope_node = self._find_child_by_type(node, "name") or self._find_child_by_type(node, "qualified_name")
             if scope_node and containing_class:
                 target_class = scope_node.text.decode()
                 if not self._is_primitive(target_class):
@@ -463,9 +455,7 @@ class TreeSitterPHPAnalyzer:
         # 6. Property promotion in constructor (PHP 8+)
         if node.type == "property_promotion_parameter":
             containing_class = self._find_containing_class_name(node)
-            type_node = self._find_child_by_type(node, "type_list") or self._find_child_by_type(
-                node, "named_type"
-            )
+            type_node = self._find_child_by_type(node, "type_list") or self._find_child_by_type(node, "named_type")
             if type_node and containing_class:
                 type_name = self._extract_type_name(type_node)
                 if type_name and not self._is_primitive(type_name):
@@ -488,9 +478,9 @@ class TreeSitterPHPAnalyzer:
         # Get all use clauses from the declaration
         for child in node.children:
             if child.type == "namespace_use_clause":
-                name_node = self._find_child_by_type(
-                    child, "qualified_name"
-                ) or self._find_child_by_type(child, "namespace_name")
+                name_node = self._find_child_by_type(child, "qualified_name") or self._find_child_by_type(
+                    child, "namespace_name"
+                )
                 if name_node:
                     fqn = name_node.text.decode().replace("\\", ".")
                     # Add relationship from file to imported class
@@ -511,11 +501,7 @@ class TreeSitterPHPAnalyzer:
                     if group_child.type == "namespace_use_group_clause":
                         name_node = self._find_child_by_type(group_child, "namespace_name")
                         if name_node:
-                            fqn = (
-                                f"{prefix}\\{name_node.text.decode()}"
-                                if prefix
-                                else name_node.text.decode()
-                            )
+                            fqn = f"{prefix}\\{name_node.text.decode()}" if prefix else name_node.text.decode()
                             file_id = self._get_module_path()
                             self.call_relationships.append(
                                 CallRelationship(
@@ -623,9 +609,9 @@ class TreeSitterPHPAnalyzer:
                     if var_node:
                         param_text = var_node.text.decode()
                         # Get type if present
-                        type_node = self._find_child_by_type(
-                            child, "named_type"
-                        ) or self._find_child_by_type(child, "primitive_type")
+                        type_node = self._find_child_by_type(child, "named_type") or self._find_child_by_type(
+                            child, "primitive_type"
+                        )
                         if type_node:
                             param_text = f"{type_node.text.decode()} {param_text}"
                         params.append(param_text)
@@ -659,9 +645,7 @@ class TreeSitterPHPAnalyzer:
         return clean_name.lower() in {p.lower() for p in PHP_PRIMITIVES}
 
 
-def analyze_php_file(
-    file_path: str, content: str, repo_path: str = None
-) -> Tuple[List[Node], List[CallRelationship]]:
+def analyze_php_file(file_path: str, content: str, repo_path: str = None) -> Tuple[List[Node], List[CallRelationship]]:
     """
     Analyze a PHP file and extract nodes and call relationships.
 

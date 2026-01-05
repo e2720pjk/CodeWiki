@@ -37,9 +37,7 @@ def validate_url(url: str, require_https: bool = False, allow_localhost: bool = 
             if allow_localhost and parsed.hostname in ["localhost", "127.0.0.1", "::1"]:
                 pass
             else:
-                raise ConfigurationError(
-                    f"URL must use HTTPS: {url}\n" f"HTTP is only allowed for localhost"
-                )
+                raise ConfigurationError(f"URL must use HTTPS: {url}\n" f"HTTP is only allowed for localhost")
 
         # Check hostname
         if not parsed.hostname:
@@ -208,9 +206,7 @@ def detect_supported_languages(directory: Path) -> List[Tuple[str, int]]:
         count = 0
         for ext in extensions:
             # Filter out files in excluded directories
-            count += sum(
-                1 for f in directory.rglob(f"*{ext}") if f.is_file() and not should_exclude_file(f)
-            )
+            count += sum(1 for f in directory.rglob(f"*{ext}") if f.is_file() and not should_exclude_file(f))
 
         if count > 0:
             language_counts[language] = count

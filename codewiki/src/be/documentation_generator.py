@@ -1,32 +1,38 @@
+# Standard library imports
+import asyncio
+import json
 import logging
 import os
-import json
-import asyncio
-from typing import Dict, List, Any, Tuple, Optional
-from copy import deepcopy
 import traceback
+from copy import deepcopy
+from typing import Any, Dict, List, Optional, Tuple
+
+# Third-party imports
 from tqdm.asyncio import tqdm
 
-# Configure logging and monitoring
-logger = logging.getLogger(__name__)
+# Project logging configuration
+from codewiki.src.be.logging_config import get_logger
 
-# Local imports (placed after logging configuration)
-from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder  # noqa: E402
-from codewiki.src.be.llm_services import call_llm  # noqa: E402
-from codewiki.src.be.prompt_template import (  # noqa: E402
-    REPO_OVERVIEW_PROMPT,
+logger = get_logger(__name__)
+
+from codewiki.src.be.agent_orchestrator import AgentOrchestrator
+from codewiki.src.be.cluster_modules import cluster_modules
+
+# Project module imports
+from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder
+from codewiki.src.be.llm_services import call_llm
+from codewiki.src.be.performance_metrics import performance_tracker
+from codewiki.src.be.prompt_template import (
     MODULE_OVERVIEW_PROMPT,
+    REPO_OVERVIEW_PROMPT,
 )
-from codewiki.src.be.cluster_modules import cluster_modules  # noqa: E402
-from codewiki.src.config import (  # noqa: E402
-    Config,
+from codewiki.src.config import (
     FIRST_MODULE_TREE_FILENAME,
     MODULE_TREE_FILENAME,
     OVERVIEW_FILENAME,
+    Config,
 )
-from codewiki.src.utils import file_manager  # noqa: E402
-from codewiki.src.be.agent_orchestrator import AgentOrchestrator  # noqa: E402
-from codewiki.src.be.performance_metrics import performance_tracker  # noqa: E402
+from codewiki.src.utils import file_manager
 
 
 class DocumentationGenerator:
@@ -35,12 +41,15 @@ class DocumentationGenerator:
     def __init__(self, config: Config, commit_id: Optional[str] = None):
         self.config = config
         self.commit_id = commit_id
+
+        from codewiki.src.be.llm_services import initialize_llm_cache
+
+        initialize_llm_cache(config)
+
         self.graph_builder = DependencyGraphBuilder(config)
         self.agent_orchestrator = AgentOrchestrator(config)
 
-    def create_documentation_metadata(
-        self, working_dir: str, components: Dict[str, Any], num_leaf_nodes: int
-    ):
+    def create_documentation_metadata(self, working_dir: str, components: Dict[str, Any], num_leaf_nodes: int):
         """Create a metadata file with documentation generation information."""
         from datetime import datetime
 
@@ -123,13 +132,9 @@ class DocumentationGenerator:
 
         for child_name, child_info in module_info.items():
             if os.path.exists(os.path.join(working_dir, f"{child_name}.md")):
-                child_info["docs"] = file_manager.load_text(
-                    os.path.join(working_dir, f"{child_name}.md")
-                )
+                child_info["docs"] = file_manager.load_text(os.path.join(working_dir, f"{child_name}.md"))
             else:
-                logger.warning(
-                    f"Module docs not found at {os.path.join(working_dir, f'{child_name}.md')}"
-                )
+                logger.warning(f"Module docs not found at {os.path.join(working_dir, f'{child_name}.md')}")
                 child_info["docs"] = ""
 
         return processed_module_tree
@@ -161,9 +166,7 @@ class DocumentationGenerator:
 
         semaphore = asyncio.Semaphore(self.config.analysis_options.concurrency_limit)
 
-        async def process_with_semaphore(
-            module_path: List[str], module_name: str
-        ) -> Tuple[str, bool]:
+        async def process_with_semaphore(module_path: List[str], module_name: str) -> Tuple[str, bool]:
             """Process a single leaf module with semaphore control."""
             async with semaphore:
                 module_key = "/".join(module_path)
@@ -222,9 +225,7 @@ class DocumentationGenerator:
         # Retry failed modules sequentially
         if failed_modules:
             logger.warning(f"Retrying {len(failed_modules)} failed leaf modules sequentially")
-            await self.retry_failed_modules_sequential(
-                failed_modules, leaf_modules, components, working_dir
-            )
+            await self.retry_failed_modules_sequential(failed_modules, leaf_modules, components, working_dir)
 
         # Return updated module tree
         module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
@@ -326,9 +327,7 @@ class DocumentationGenerator:
             except Exception as e:
                 logger.error(f"❌ Retry failed for module {module_key}: {str(e)}")
 
-    async def generate_module_documentation(
-        self, components: Dict[str, Any], leaf_nodes: List[str]
-    ) -> str:
+    async def generate_module_documentation(self, components: Dict[str, Any], leaf_nodes: List[str]) -> str:
         """Generate documentation for all modules using dynamic programming approach."""
         # Prepare output directory
         working_dir = os.path.abspath(self.config.docs_dir)
@@ -362,9 +361,7 @@ class DocumentationGenerator:
         # Start performance tracking
         total_modules = len(processing_order)
         leaf_count = len(leaf_modules)
-        performance_tracker.start_tracking(
-            total_modules, leaf_count, self.config.analysis_options.concurrency_limit
-        )
+        performance_tracker.start_tracking(total_modules, leaf_count, self.config.analysis_options.concurrency_limit)
 
         # Process modules in dependency order
         final_module_tree = module_tree
@@ -373,13 +370,8 @@ class DocumentationGenerator:
         if len(module_tree) > 0:
             # Process leaf modules in parallel if enabled
             if leaf_modules:
-                if (
-                    self.config.analysis_options.enable_parallel_processing
-                    and len(leaf_modules) > 1
-                ):
-                    final_module_tree = await self.process_leaf_modules_parallel(
-                        leaf_modules, components, working_dir
-                    )
+                if self.config.analysis_options.enable_parallel_processing and len(leaf_modules) > 1:
+                    final_module_tree = await self.process_leaf_modules_parallel(leaf_modules, components, working_dir)
                 else:
                     final_module_tree = await self.process_leaf_modules_sequential(
                         leaf_modules, components, working_dir
@@ -390,9 +382,7 @@ class DocumentationGenerator:
                 module_key = "/".join(module_path)
                 try:
                     logger.info(f"📁 Processing parent module: {module_key}")
-                    final_module_tree = await self.generate_parent_module_docs(
-                        module_path, working_dir
-                    )
+                    final_module_tree = await self.generate_parent_module_docs(module_path, working_dir)
                     processed_modules.add(module_key)
 
                 except Exception as e:
@@ -411,9 +401,7 @@ class DocumentationGenerator:
             )
 
             # save final_module_tree to module_tree.json
-            file_manager.save_json(
-                final_module_tree, os.path.join(working_dir, MODULE_TREE_FILENAME)
-            )
+            file_manager.save_json(final_module_tree, os.path.join(working_dir, MODULE_TREE_FILENAME))
 
             # rename repo_name.md to overview.md
             repo_overview_path = os.path.join(working_dir, f"{repo_name}.md")
@@ -422,14 +410,10 @@ class DocumentationGenerator:
 
         return working_dir
 
-    async def generate_parent_module_docs(
-        self, module_path: List[str], working_dir: str
-    ) -> Dict[str, Any]:
+    async def generate_parent_module_docs(self, module_path: List[str], working_dir: str) -> Dict[str, Any]:
         """Generate documentation for a parent module based on its children's documentation."""
         module_name = (
-            module_path[-1]
-            if len(module_path) >= 1
-            else os.path.basename(os.path.normpath(self.config.repo_path))
+            module_path[-1] if len(module_path) >= 1 else os.path.basename(os.path.normpath(self.config.repo_path))
         )
 
         logger.info(f"Generating parent documentation for: {module_name}")
@@ -457,13 +441,9 @@ class DocumentationGenerator:
         repo_structure = self.build_overview_structure(module_tree, module_path, working_dir)
 
         prompt = (
-            MODULE_OVERVIEW_PROMPT.format(
-                module_name=module_name, repo_structure=json.dumps(repo_structure, indent=4)
-            )
+            MODULE_OVERVIEW_PROMPT.format(module_name=module_name, repo_structure=json.dumps(repo_structure, indent=4))
             if len(module_path) >= 1
-            else REPO_OVERVIEW_PROMPT.format(
-                repo_name=module_name, repo_structure=json.dumps(repo_structure, indent=4)
-            )
+            else REPO_OVERVIEW_PROMPT.format(repo_name=module_name, repo_structure=json.dumps(repo_structure, indent=4))
         )
 
         try:
@@ -525,9 +505,7 @@ class DocumentationGenerator:
                 f"{metrics.successful_modules}/{metrics.total_modules} modules successful"
             )
 
-            logger.debug(
-                "Documentation generation completed successfully using dynamic programming!"
-            )
+            logger.debug("Documentation generation completed successfully using dynamic programming!")
             logger.debug("Processing order: leaf modules → parent modules → repository overview")
             logger.debug(f"Documentation saved to: {working_dir}")
 

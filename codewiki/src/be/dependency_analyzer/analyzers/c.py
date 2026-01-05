@@ -1,9 +1,9 @@
 import logging
-from typing import List, Tuple, Optional
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -91,9 +91,7 @@ class TreeSitterCAnalyzer:
             if struct_spec:
                 node_type = "struct"
                 # The typedef name is the type_identifier at the end
-                type_declarator = next(
-                    (c for c in node.children if c.type == "type_identifier"), None
-                )
+                type_declarator = next((c for c in node.children if c.type == "type_identifier"), None)
                 if type_declarator:
                     node_name = type_declarator.text.decode()
         elif node.type == "declaration":
@@ -101,15 +99,11 @@ class TreeSitterCAnalyzer:
                 node_type = "variable"
                 for child in node.children:
                     if child.type == "init_declarator":
-                        identifier = next(
-                            (c for c in child.children if c.type == "identifier"), None
-                        )
+                        identifier = next((c for c in child.children if c.type == "identifier"), None)
                         if identifier:
                             node_name = identifier.text.decode()
                             break
-                        pointer_declarator = next(
-                            (c for c in child.children if c.type == "pointer_declarator"), None
-                        )
+                        pointer_declarator = next((c for c in child.children if c.type == "pointer_declarator"), None)
                         if pointer_declarator:
                             identifier = next(
                                 (c for c in pointer_declarator.children if c.type == "identifier"),
@@ -188,10 +182,7 @@ class TreeSitterCAnalyzer:
             if containing_function:
                 var_name = node.text.decode()
                 # Check if this identifier refers to a global variable
-                if (
-                    var_name in top_level_nodes
-                    and top_level_nodes[var_name].component_type == "variable"
-                ):
+                if var_name in top_level_nodes and top_level_nodes[var_name].component_type == "variable":
                     containing_function_id = self._get_component_id(containing_function)
                     var_component_id = self._get_component_id(var_name)
                     self.call_relationships.append(
@@ -213,13 +204,9 @@ class TreeSitterCAnalyzer:
         while current:
             if current.type == "function_definition":
                 # Get function name
-                declarator = next(
-                    (c for c in current.children if c.type == "function_declarator"), None
-                )
+                declarator = next((c for c in current.children if c.type == "function_declarator"), None)
                 if declarator:
-                    identifier = next(
-                        (c for c in declarator.children if c.type == "identifier"), None
-                    )
+                    identifier = next((c for c in declarator.children if c.type == "identifier"), None)
                     if identifier:
                         func_name = identifier.text.decode()
                         if func_name in top_level_nodes:

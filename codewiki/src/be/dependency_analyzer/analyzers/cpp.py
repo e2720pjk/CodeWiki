@@ -1,9 +1,9 @@
 import logging
-from typing import List, Tuple, Optional
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -45,9 +45,7 @@ class TreeSitterCppAnalyzer:
     def _get_component_id(self, name: str, parent_class: Optional[str] = None) -> str:
         module_path = self._get_module_path()
         if parent_class:
-            return (
-                f"{module_path}.{parent_class}.{name}" if module_path else f"{parent_class}.{name}"
-            )
+            return f"{module_path}.{parent_class}.{name}" if module_path else f"{parent_class}.{name}"
         return f"{module_path}.{name}" if module_path else name
 
     def _analyze(self):
@@ -115,9 +113,7 @@ class TreeSitterCppAnalyzer:
                 node_type = "variable"
                 for child in node.children:
                     if child.type == "init_declarator":
-                        identifier = next(
-                            (c for c in child.children if c.type == "identifier"), None
-                        )
+                        identifier = next((c for c in child.children if c.type == "identifier"), None)
                         if identifier:
                             node_name = identifier.text.decode()
                             break
@@ -202,9 +198,7 @@ class TreeSitterCppAnalyzer:
         if node.type == "call_expression":
             containing_function = self._find_containing_function_or_method(node, top_level_nodes)
             if containing_function:
-                containing_function_id = self._get_component_id_for_function(
-                    containing_function, top_level_nodes
-                )
+                containing_function_id = self._get_component_id_for_function(containing_function, top_level_nodes)
 
                 # Get called function name
                 called_function = None
@@ -223,9 +217,7 @@ class TreeSitterCppAnalyzer:
                             break
 
                 if called_function and not self._is_system_function(called_function):
-                    target_class = self._find_class_containing_method(
-                        called_function, top_level_nodes
-                    )
+                    target_class = self._find_class_containing_method(called_function, top_level_nodes)
 
                     if target_class:
                         target_class_id = self._get_component_id(target_class)
@@ -269,9 +261,7 @@ class TreeSitterCppAnalyzer:
         elif node.type == "new_expression":
             containing_function = self._find_containing_function_or_method(node, top_level_nodes)
             if containing_function:
-                containing_function_id = self._get_component_id_for_function(
-                    containing_function, top_level_nodes
-                )
+                containing_function_id = self._get_component_id_for_function(containing_function, top_level_nodes)
 
                 # Get the class being instantiated
                 for child in node.children:
@@ -298,13 +288,8 @@ class TreeSitterCppAnalyzer:
                 "function_declarator",
             ]:
                 var_name = node.text.decode()
-                if (
-                    var_name in top_level_nodes
-                    and top_level_nodes[var_name].component_type == "variable"
-                ):
-                    containing_function = self._find_containing_function_or_method(
-                        node, top_level_nodes
-                    )
+                if var_name in top_level_nodes and top_level_nodes[var_name].component_type == "variable":
+                    containing_function = self._find_containing_function_or_method(node, top_level_nodes)
                     if containing_function and containing_function != var_name:
                         containing_function_id = self._get_component_id_for_function(
                             containing_function, top_level_nodes
@@ -328,13 +313,9 @@ class TreeSitterCppAnalyzer:
         while current:
             if current.type == "function_definition":
                 # Get function name
-                declarator = next(
-                    (c for c in current.children if c.type == "function_declarator"), None
-                )
+                declarator = next((c for c in current.children if c.type == "function_declarator"), None)
                 if declarator:
-                    identifier = next(
-                        (c for c in declarator.children if c.type == "identifier"), None
-                    )
+                    identifier = next((c for c in declarator.children if c.type == "identifier"), None)
                     if identifier:
                         func_name = identifier.text.decode()
                         if func_name in top_level_nodes:
@@ -347,13 +328,9 @@ class TreeSitterCppAnalyzer:
         current = node.parent
         while current:
             if current.type == "function_definition":
-                declarator = next(
-                    (c for c in current.children if c.type == "function_declarator"), None
-                )
+                declarator = next((c for c in current.children if c.type == "function_declarator"), None)
                 if declarator:
-                    identifier = next(
-                        (c for c in declarator.children if c.type == "identifier"), None
-                    )
+                    identifier = next((c for c in declarator.children if c.type == "identifier"), None)
                     if identifier:
                         func_name = identifier.text.decode()
                         return func_name

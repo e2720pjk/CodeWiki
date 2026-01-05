@@ -1,6 +1,8 @@
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship, Repository
+
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node, Repository
 
 
 class AnalysisResult(BaseModel):

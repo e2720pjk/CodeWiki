@@ -7,8 +7,8 @@ including detection and resolution of dependency cycles.
 """
 
 import logging
-from typing import Dict, List, Set, Any
 from collections import deque
+from typing import Any, Dict, List, Set
 
 from codewiki.src.be.dependency_analyzer.models.core import Node
 
@@ -322,10 +322,7 @@ def get_leaf_nodes(graph: Dict[str, Set[str]], components: Dict[str, Node]) -> L
             if (
                 not isinstance(leaf_node, str)
                 or leaf_node.strip() == ""
-                or any(
-                    err_keyword in leaf_node.lower()
-                    for err_keyword in ["error", "exception", "failed", "invalid"]
-                )
+                or any(err_keyword in leaf_node.lower() for err_keyword in ["error", "exception", "failed", "invalid"])
             ):
                 logger.debug(f"Skipping invalid leaf node identifier: '{leaf_node}'")
                 continue
@@ -344,9 +341,7 @@ def get_leaf_nodes(graph: Dict[str, Set[str]], components: Dict[str, Node]) -> L
 
     concise_leaf_nodes = concise_node(leaf_nodes)
     if len(concise_leaf_nodes) >= 400:
-        logger.debug(
-            f"Leaf nodes are too many ({len(concise_leaf_nodes)}), removing dependencies of other nodes"
-        )
+        logger.debug(f"Leaf nodes are too many ({len(concise_leaf_nodes)}), removing dependencies of other nodes")
         # Remove nodes that are dependencies of other nodes
         for node, deps in acyclic_graph.items():
             for dep in deps:

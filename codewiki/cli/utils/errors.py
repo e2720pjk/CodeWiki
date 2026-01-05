@@ -11,8 +11,8 @@ Exit Codes:
 """
 
 import sys
-import click
 
+import click
 
 # Exit codes
 EXIT_SUCCESS = 0

@@ -1,13 +1,13 @@
 import logging
 import os
 import traceback
-from typing import List, Optional, Tuple
 from pathlib import Path
+from typing import List, Optional, Tuple
 
-from tree_sitter import Parser, Language
 import tree_sitter_javascript
+from tree_sitter import Language, Parser
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -63,9 +63,7 @@ class TreeSitterJSAnalyzer:
             self._extract_functions(root_node)
             self._extract_call_relationships(root_node)
 
-            logger.debug(
-                f"Analysis complete: {len(self.nodes)} nodes, {len(self.call_relationships)} relationships"
-            )
+            logger.debug(f"Analysis complete: {len(self.nodes)} nodes, {len(self.call_relationships)} relationships")
 
         except Exception as e:
             logger.error(f"Error analyzing JavaScript file {self.file_path}: {e}", exc_info=True)
@@ -371,9 +369,9 @@ class TreeSitterJSAnalyzer:
             for child in node.children:
                 if child.type == "variable_declarator":
                     name_node = self._find_child_by_type(child, "identifier")
-                    func_node = self._find_child_by_type(
-                        child, "arrow_function"
-                    ) or self._find_child_by_type(child, "function_expression")
+                    func_node = self._find_child_by_type(child, "arrow_function") or self._find_child_by_type(
+                        child, "function_expression"
+                    )
 
                     if name_node and func_node:
                         func_name = self._get_node_text(name_node)
@@ -439,9 +437,9 @@ class TreeSitterJSAnalyzer:
             "abstract_class_declaration",
             "interface_declaration",
         ]:
-            name_node = self._find_child_by_type(
-                node, "type_identifier"
-            ) or self._find_child_by_type(node, "identifier")
+            name_node = self._find_child_by_type(node, "type_identifier") or self._find_child_by_type(
+                node, "identifier"
+            )
             if name_node:
                 current_top_level = self._get_node_text(name_node)
 
@@ -472,9 +470,9 @@ class TreeSitterJSAnalyzer:
             for child in node.children:
                 if child.type == "variable_declarator":
                     name_node = self._find_child_by_type(child, "identifier")
-                    func_node = self._find_child_by_type(
-                        child, "arrow_function"
-                    ) or self._find_child_by_type(child, "function_expression")
+                    func_node = self._find_child_by_type(child, "arrow_function") or self._find_child_by_type(
+                        child, "function_expression"
+                    )
                     if name_node and func_node:
                         current_top_level = self._get_node_text(name_node)
 
@@ -750,9 +748,7 @@ def analyze_javascript_file_treesitter(
         logger.debug(f"Tree-sitter JS analysis for {file_path}")
         analyzer = TreeSitterJSAnalyzer(file_path, content, repo_path)
         analyzer.analyze()
-        logger.debug(
-            f"Found {len(analyzer.nodes)} top-level nodes, {len(analyzer.call_relationships)} calls"
-        )
+        logger.debug(f"Found {len(analyzer.nodes)} top-level nodes, {len(analyzer.call_relationships)} calls")
         return analyzer.nodes, analyzer.call_relationships
     except Exception as e:
         logger.error(f"Error in tree-sitter JS analysis for {file_path}: {e}", exc_info=True)

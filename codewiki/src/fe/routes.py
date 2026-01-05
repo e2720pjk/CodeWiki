@@ -3,23 +3,23 @@
 FastAPI route handlers for the CodeWiki web application.
 """
 
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from pathlib import Path
-from dataclasses import asdict
-
 from traceback import format_exc
 
 from fastapi import Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from .models import JobStatus, JobStatusResponse
-from .github_processor import GitHubRepoProcessor
+from codewiki.src.utils import file_manager
+
 from .background_worker import BackgroundWorker
 from .cache_manager import CacheManager
-from .templates import WEB_INTERFACE_TEMPLATE
-from .template_utils import render_template
 from .config import WebAppConfig
-from codewiki.src.utils import file_manager
+from .github_processor import GitHubRepoProcessor
+from .models import JobStatus, JobStatusResponse
+from .template_utils import render_template
+from .templates import WEB_INTERFACE_TEMPLATE
 
 
 class WebRoutes:
@@ -48,9 +48,7 @@ class WebRoutes:
 
         return HTMLResponse(content=render_template(WEB_INTERFACE_TEMPLATE, context))
 
-    async def index_post(
-        self, request: Request, repo_url: str = Form(...), commit_id: str = Form("")
-    ) -> HTMLResponse:
+    async def index_post(self, request: Request, repo_url: str = Form(...), commit_id: str = Form("")) -> HTMLResponse:
         """Handle repository submission."""
         # Clean up old jobs before processing
         self.cleanup_old_jobs()
@@ -89,9 +87,7 @@ class WebRoutes:
 
             if existing_job:
                 if existing_job.status in ["queued", "processing"]:
-                    message = (
-                        f"Repository is already being processed (Job ID: {existing_job.job_id})"
-                    )
+                    message = f"Repository is already being processed (Job ID: {existing_job.job_id})"
                 else:
                     message = f"Repository recently failed processing. Please wait a few minutes before retrying (Job ID: {existing_job.job_id})"
                 message_type = "error"
@@ -172,9 +168,7 @@ class WebRoutes:
         # Redirect to the documentation viewer
         return RedirectResponse(url=f"/static-docs/{job_id}/", status_code=status.HTTP_302_FOUND)
 
-    async def serve_generated_docs(
-        self, job_id: str, filename: str = "overview.md"
-    ) -> HTMLResponse:
+    async def serve_generated_docs(self, job_id: str, filename: str = "overview.md") -> HTMLResponse:
         """Serve generated documentation files."""
         job = self.background_worker.get_job_status(job_id)
         docs_path = None
@@ -244,8 +238,8 @@ class WebRoutes:
             content = file_manager.load_text(file_path)
 
             # Convert markdown to HTML (reuse from visualise_docs.py)
-            from .visualise_docs import markdown_to_html, get_file_title
             from .templates import DOCS_VIEW_TEMPLATE
+            from .visualise_docs import get_file_title, markdown_to_html
 
             html_content = markdown_to_html(content)
             title = get_file_title(file_path)
@@ -263,9 +257,7 @@ class WebRoutes:
             return HTMLResponse(content=render_template(DOCS_VIEW_TEMPLATE, context))
 
         except Exception as e:
-            raise HTTPException(
-                status_code=500, detail=f"Error reading {filename}: {e}\n{format_exc()}"
-            )
+            raise HTTPException(status_code=500, detail=f"Error reading {filename}: {e}\n{format_exc()}")
 
     def _normalize_github_url(self, url: str) -> str:
         """Normalize GitHub URL for consistent comparison."""

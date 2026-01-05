@@ -5,21 +5,21 @@ This adapter wraps the existing backend documentation_generator.py
 and provides CLI-specific functionality like progress reporting.
 """
 
-from pathlib import Path
-from typing import Dict, Any, Optional
 import asyncio
-import os
 import logging
+import os
 import sys
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-
-from codewiki.cli.utils.progress import ProgressTracker
-from codewiki.cli.models.job import DocumentationJob, LLMConfig, GenerationOptions, AnalysisOptions
+from codewiki.cli.models.job import AnalysisOptions, DocumentationJob, GenerationOptions, LLMConfig
 from codewiki.cli.utils.errors import APIError
+from codewiki.cli.utils.progress import ProgressTracker
 
 # Import backend modules
 from codewiki.src.be.documentation_generator import DocumentationGenerator
-from codewiki.src.config import Config as BackendConfig, set_cli_context
+from codewiki.src.config import Config as BackendConfig
+from codewiki.src.config import set_cli_context
 
 
 class CLIDocumentationGenerator:
@@ -203,8 +203,8 @@ class CLIDocumentationGenerator:
 
         # Import clustering function
         from codewiki.src.be.cluster_modules import cluster_modules
-        from codewiki.src.utils import file_manager
         from codewiki.src.config import FIRST_MODULE_TREE_FILENAME, MODULE_TREE_FILENAME
+        from codewiki.src.utils import file_manager
 
         working_dir = str(self.output_dir.absolute())
         file_manager.ensure_directory(working_dir)

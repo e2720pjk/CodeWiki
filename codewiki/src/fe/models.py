@@ -3,9 +3,10 @@
 Data models and classes for the CodeWiki web application.
 """
 
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from dataclasses import dataclass
+
 from pydantic import BaseModel, HttpUrl
 
 

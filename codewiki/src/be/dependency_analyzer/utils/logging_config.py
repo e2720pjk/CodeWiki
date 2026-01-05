@@ -27,6 +27,7 @@ Usage:
 import logging
 import sys
 from typing import ClassVar
+
 from colorama import Fore, Style, init
 
 # Initialize colorama for cross-platform colored terminal output
@@ -66,9 +67,7 @@ class ColoredFormatter(logging.Formatter):
 
         # Format timestamp
         timestamp = self.formatTime(record, "%H:%M:%S")
-        colored_timestamp = (
-            f"{self.COMPONENT_COLORS['timestamp']}[{timestamp}]{self.COMPONENT_COLORS['reset']}"
-        )
+        colored_timestamp = f"{self.COMPONENT_COLORS['timestamp']}[{timestamp}]{self.COMPONENT_COLORS['reset']}"
 
         # Format log level with color
         colored_level = f"{level_color}{record.levelname:8}{self.COMPONENT_COLORS['reset']}"

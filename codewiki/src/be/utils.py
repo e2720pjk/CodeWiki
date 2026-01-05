@@ -1,10 +1,10 @@
+import logging
 import re
+import traceback
 from pathlib import Path
 from typing import List, Tuple
-import logging
-import tiktoken
-import traceback
 
+import tiktoken
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +83,7 @@ async def validate_mermaid_diagrams(md_file_path: str, relative_path: str) -> st
         #     logger.debug(f"Mermaid syntax errors found in file: {md_file_path}: {errors}")
 
         if errors:
-            return (
-                "Mermaid syntax errors found in file: " + relative_path + "\n" + "\n".join(errors)
-            )
+            return "Mermaid syntax errors found in file: " + relative_path + "\n" + "\n".join(errors)
         else:
             return "All mermaid diagrams in file: " + relative_path + " are syntax correct"
 
@@ -141,8 +139,8 @@ async def validate_single_diagram(diagram_content: str, diagram_num: int, line_s
     Returns:
         Error message if invalid, empty string if valid
     """
-    import sys
     import os
+    import sys
 
     core_error = ""
 
@@ -174,9 +172,7 @@ async def validate_single_diagram(diagram_content: str, diagram_num: int, line_s
                 core_error = match.group(0).strip()
                 core_error = core_error
             else:
-                logger.error(
-                    f"No match found for error pattern, fallback to mermaid-py\n{error_str}"
-                )
+                logger.error(f"No match found for error pattern, fallback to mermaid-py\n{error_str}")
                 logger.error(f"Traceback: {traceback.format_exc()}")
                 raise Exception(error_str)
 

@@ -5,7 +5,7 @@ File system utilities for CLI operations.
 import os
 import shutil
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 from codewiki.cli.utils.errors import FileSystemError
 
@@ -29,9 +29,7 @@ def ensure_directory(path: Path, mode: int = 0o700) -> Path:
         path.mkdir(parents=True, exist_ok=True, mode=mode)
         return path
     except PermissionError:
-        raise FileSystemError(
-            f"Permission denied: Cannot create directory {path}\n" f"Try: chmod u+w {path.parent}"
-        )
+        raise FileSystemError(f"Permission denied: Cannot create directory {path}\n" f"Try: chmod u+w {path.parent}")
     except OSError as e:
         raise FileSystemError(f"Cannot create directory {path}: {e}")
 
@@ -125,9 +123,7 @@ def get_file_size(path: Path) -> int:
     return Path(path).stat().st_size
 
 
-def find_files(
-    directory: Path, extensions: Optional[List[str]] = None, recursive: bool = True
-) -> List[Path]:
+def find_files(directory: Path, extensions: Optional[List[str]] = None, recursive: bool = True) -> List[Path]:
     """
     Find files in directory matching extensions.
 

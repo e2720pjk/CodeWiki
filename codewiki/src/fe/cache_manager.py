@@ -6,11 +6,12 @@ Cache management for documentation generation results.
 import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional, Dict
+from typing import Dict, Optional
 
-from .models import CacheEntry
-from .config import WebAppConfig
 from codewiki.src.utils import file_manager
+
+from .config import WebAppConfig
+from .models import CacheEntry
 
 
 class CacheManager:

@@ -1,62 +1,37 @@
-from pydantic_ai import Agent
-
-# import logfire
+# Standard library imports
 import logging
 import os
 import traceback
-from typing import Dict, List, Any
+from typing import Any, Dict, List
 
-# Configure logging and monitoring
+# Project logging configuration
+from codewiki.src.be.logging_config import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
-# try:
-#     # Configure logfire with environment variables for Docker compatibility
-#     logfire_token = os.getenv('LOGFIRE_TOKEN')
-#     logfire_project = os.getenv('LOGFIRE_PROJECT_NAME', 'default')
-#     logfire_service = os.getenv('LOGFIRE_SERVICE_NAME', 'default')
+# Project module imports
+from pydantic_ai import Agent
 
-#     if logfire_token:
-#         # Configure with explicit token (for Docker)
-#         logfire.configure(
-#             token=logfire_token,
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-#     else:
-#         # Use default configuration (for local development with logfire auth)
-#         logfire.configure(
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-
-#     logfire.instrument_pydantic_ai()
-#     logger.debug(f"Logfire configured successfully for project: {logfire_project}")
-
-# except Exception as e:
-#     logger.warning(f"Failed to configure logfire: {e}")
-
-# Local imports (placed after logging configuration)
-from codewiki.src.be.agent_tools.deps import CodeWikiDeps  # noqa: E402
-from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool  # noqa: E402
-from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool  # noqa: E402
-from codewiki.src.be.agent_tools.generate_sub_module_documentations import (  # noqa: E402
+from codewiki.src.be.agent_tools.deps import CodeWikiDeps
+from codewiki.src.be.agent_tools.generate_sub_module_documentations import (
     generate_sub_module_documentation_tool,
 )
-from codewiki.src.be.llm_services import create_fallback_models  # noqa: E402
-from codewiki.src.be.prompt_template import (  # noqa: E402
-    SYSTEM_PROMPT,
+from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
+from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
+from codewiki.src.be.dependency_analyzer.models.core import Node
+from codewiki.src.be.llm_services import create_fallback_models
+from codewiki.src.be.prompt_template import (
     LEAF_SYSTEM_PROMPT,
+    SYSTEM_PROMPT,
     format_user_prompt,
 )
-from codewiki.src.be.utils import is_complex_module  # noqa: E402
-from codewiki.src.config import (  # noqa: E402
-    Config,
+from codewiki.src.be.utils import is_complex_module
+from codewiki.src.config import (
     MODULE_TREE_FILENAME,
     OVERVIEW_FILENAME,
+    Config,
 )
-from codewiki.src.utils import file_manager  # noqa: E402
-from codewiki.src.be.dependency_analyzer.models.core import Node  # noqa: E402
+from codewiki.src.utils import file_manager
 
 
 class AgentOrchestrator:
@@ -66,9 +41,7 @@ class AgentOrchestrator:
         self.config = config
         self.fallback_models = create_fallback_models(config)
 
-    def create_agent(
-        self, module_name: str, components: Dict[str, Any], core_component_ids: List[str]
-    ) -> Agent:
+    def create_agent(self, module_name: str, components: Dict[str, Any], core_component_ids: List[str]) -> Agent:
         """Create an appropriate agent based on module complexity."""
         if is_complex_module(components, core_component_ids):
             return Agent(
@@ -161,9 +134,7 @@ class AgentOrchestrator:
 
             # Check if it's a tool retry error and provide guidance
             if "exceeded max retries" in error_msg:
-                logger.error(
-                    "Tool execution failed - LLM may be having difficulty generating valid tool calls."
-                )
+                logger.error("Tool execution failed - LLM may be having difficulty generating valid tool calls.")
                 logger.error(
                     "Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM"
                 )

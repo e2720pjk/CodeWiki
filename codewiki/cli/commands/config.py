@@ -4,21 +4,22 @@ Configuration commands for CodeWiki CLI.
 
 import json
 import sys
-import click
 from typing import Optional
+
+import click
 
 from codewiki.cli.config_manager import ConfigManager
 from codewiki.cli.utils.errors import (
+    EXIT_CONFIG_ERROR,
     ConfigurationError,
     handle_error,
-    EXIT_CONFIG_ERROR,
 )
 from codewiki.cli.utils.validation import (
-    validate_url,
-    validate_api_key,
-    validate_model_name,
     is_top_tier_model,
     mask_api_key,
+    validate_api_key,
+    validate_model_name,
+    validate_url,
 )
 
 
@@ -57,6 +58,12 @@ def config_group():
     default=None,
     help="Maximum tokens per leaf module (default: 16000, range: 500-100000)",
 )
+@click.option(
+    "--cache-size",
+    type=click.IntRange(min=100, max=10000),
+    default=None,
+    help="LLM cache size - number of cached prompts (default: 1000, range: 100-10000)",
+)
 def config_set(
     api_key: Optional[str],
     base_url: Optional[str],
@@ -67,6 +74,7 @@ def config_set(
     concurrency_limit: Optional[int],
     max_tokens_per_module: Optional[int],
     max_tokens_per_leaf: Optional[int],
+    cache_size: Optional[int],
 ):
     """
     Set configuration values for CodeWiki.
@@ -100,6 +108,7 @@ def config_set(
                 concurrency_limit is not None,
                 max_tokens_per_module is not None,
                 max_tokens_per_leaf is not None,
+                cache_size is not None,
             ]
         ):
             click.echo("No options provided. Use --help for usage information.")
@@ -135,6 +144,9 @@ def config_set(
         if max_tokens_per_leaf is not None:
             validated_data["max_tokens_per_leaf"] = max_tokens_per_leaf
 
+        if cache_size is not None:
+            validated_data["cache_size"] = cache_size
+
         # Create config manager and save
         manager = ConfigManager()
         manager.load()  # Load existing config if present
@@ -149,6 +161,7 @@ def config_set(
             concurrency_limit=validated_data.get("concurrency_limit"),
             max_tokens_per_module=validated_data.get("max_tokens_per_module"),
             max_tokens_per_leaf=validated_data.get("max_tokens_per_leaf"),
+            cache_size=validated_data.get("cache_size"),
         )
 
         # Display success messages
@@ -157,9 +170,7 @@ def config_set(
             if manager.keyring_available:
                 click.secho("✓ API key saved to system keychain", fg="green")
             else:
-                click.secho(
-                    "⚠️  System keychain unavailable. API key stored in encrypted file.", fg="yellow"
-                )
+                click.secho("⚠️  System keychain unavailable. API key stored in encrypted file.", fg="yellow")
 
         if base_url:
             click.secho(f"✓ Base URL: {base_url}", fg="green")
@@ -173,13 +184,10 @@ def config_set(
             # Warn if not using top-tier model for clustering
             if not is_top_tier_model(cluster_model):
                 click.secho(
-                    "\n⚠️  Cluster model is not a top-tier LLM. "
-                    "Documentation quality may be suboptimal.",
+                    "\n⚠️  Cluster model is not a top-tier LLM. " "Documentation quality may be suboptimal.",
                     fg="yellow",
                 )
-                click.echo(
-                    "   Recommended models: claude-opus, claude-sonnet-4, gpt-4, gpt-4-turbo"
-                )
+                click.echo("   Recommended models: claude-opus, claude-sonnet-4, gpt-4, gpt-4-turbo")
 
         if fallback_model:
             click.secho(f"✓ Fallback model: {fallback_model}", fg="green")
@@ -196,6 +204,9 @@ def config_set(
 
         if max_tokens_per_leaf is not None:
             click.secho(f"✓ Max tokens per leaf: {max_tokens_per_leaf}", fg="green")
+
+        if cache_size is not None:
+            click.secho(f"✓ Cache size: {cache_size}", fg="green")
 
         click.echo("\n" + click.style("Configuration updated successfully.", fg="green", bold=True))
 
@@ -252,6 +263,7 @@ def config_show(output_json: bool):
                 "max_tokens_per_leaf": config.max_tokens_per_leaf if config else 16000,
                 "enable_parallel_processing": config.enable_parallel_processing if config else True,
                 "concurrency_limit": config.concurrency_limit if config else 5,
+                "cache_size": config.cache_size if config else 1000,
                 "config_file": str(manager.config_file_path),
             }
             click.echo(json.dumps(output, indent=2))
@@ -292,6 +304,7 @@ def config_show(output_json: bool):
                 status = "enabled" if config.enable_parallel_processing else "disabled"
                 click.echo(f"  Parallel Processing:       {status}")
                 click.echo(f"  Concurrency Limit:         {config.concurrency_limit}")
+                click.echo(f"  Cache Size:                {config.cache_size}")
 
             click.echo()
             click.echo(f"Configuration file: {manager.config_file_path}")
@@ -343,9 +356,7 @@ def config_validate(quick: bool, verbose: bool):
         if not manager.load():
             click.secho("✗ Configuration file not found", fg="red")
             click.echo()
-            click.echo(
-                "Error: Configuration is incomplete. Run 'codewiki config set --help' for setup instructions."
-            )
+            click.echo("Error: Configuration is incomplete. Run 'codewiki config set --help' for setup instructions.")
             sys.exit(EXIT_CONFIG_ERROR)
 
         if verbose:

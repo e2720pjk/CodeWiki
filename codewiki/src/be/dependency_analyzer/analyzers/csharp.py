@@ -1,9 +1,9 @@
 import logging
-from typing import List, Tuple, Optional
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -67,12 +67,8 @@ class TreeSitterCSharpAnalyzer:
 
         if node.type == "class_declaration":
             # modifiers + class + identifier + body
-            is_abstract = any(
-                c.type == "modifier" and "abstract" in c.text.decode() for c in node.children
-            )
-            is_static = any(
-                c.type == "modifier" and "static" in c.text.decode() for c in node.children
-            )
+            is_abstract = any(c.type == "modifier" and "abstract" in c.text.decode() for c in node.children)
+            is_static = any(c.type == "modifier" and "static" in c.text.decode() for c in node.children)
             if is_static:
                 node_type = "static class"
             elif is_abstract:
@@ -230,9 +226,7 @@ class TreeSitterCSharpAnalyzer:
                 if param_list:
                     for child in param_list.children:
                         if child.type == "parameter":
-                            type_node = next(
-                                (c for c in child.children if c.type == "identifier"), None
-                            )
+                            type_node = next((c for c in child.children if c.type == "identifier"), None)
                             if type_node:
                                 param_type = type_node.text.decode()
                                 if param_type and not self._is_primitive_type(param_type):

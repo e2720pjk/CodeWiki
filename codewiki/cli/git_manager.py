@@ -2,9 +2,10 @@
 Git operations manager for CodeWiki CLI.
 """
 
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 from typing import Optional, Tuple
+
 import git
 from git.exc import GitCommandError
 
@@ -37,9 +38,7 @@ class GitManager:
         try:
             self.repo = git.Repo(repo_path, search_parent_directories=True)
         except git.InvalidGitRepositoryError:
-            raise RepositoryError(
-                f"Not a git repository: {repo_path}\n\n" "To initialize a git repository: git init"
-            )
+            raise RepositoryError(f"Not a git repository: {repo_path}\n\n" "To initialize a git repository: git init")
 
     def check_clean_working_directory(self) -> Tuple[bool, str]:
         """

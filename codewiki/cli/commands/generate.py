@@ -2,31 +2,31 @@
 Generate command for documentation generation.
 """
 
-import sys
 import logging
+import sys
+import time
 import traceback
 from pathlib import Path
-import click
-import time
 
+import click
+
+from codewiki.cli.adapters.doc_generator import CLIDocumentationGenerator
 from codewiki.cli.config_manager import ConfigManager
+from codewiki.cli.models.job import AnalysisOptions, GenerationOptions
 from codewiki.cli.utils.errors import (
+    EXIT_SUCCESS,
+    APIError,
     ConfigurationError,
     RepositoryError,
-    APIError,
     handle_error,
-    EXIT_SUCCESS,
 )
-from codewiki.cli.utils.repo_validator import (
-    validate_repository,
+from codewiki.cli.utils.instructions import display_post_generation_instructions
+from codewiki.cli.utils.logging import create_logger
+from codewiki.cli.utils.repo_validator import (  # Removed: get_git_commit_hash and get_git_branch imports - not currently used
     check_writable_output,
     is_git_repository,
-    # Removed: get_git_commit_hash and get_git_branch imports - not currently used
+    validate_repository,
 )
-from codewiki.cli.utils.logging import create_logger
-from codewiki.cli.adapters.doc_generator import CLIDocumentationGenerator
-from codewiki.cli.utils.instructions import display_post_generation_instructions
-from codewiki.cli.models.job import GenerationOptions, AnalysisOptions
 
 
 @click.command(name="generate")
@@ -58,15 +58,9 @@ from codewiki.cli.models.job import GenerationOptions, AnalysisOptions
     is_flag=True,
     help="Show detailed progress and debug information",
 )
-@click.option(
-    "--respect-gitignore", is_flag=True, help="Respect .gitignore file patterns during analysis"
-)
-@click.option(
-    "--max-files", type=int, default=100, help="Maximum number of files to analyze (default: 100)"
-)
-@click.option(
-    "--max-entry-points", type=int, default=5, help="Maximum fallback entry points (default: 5)"
-)
+@click.option("--respect-gitignore", is_flag=True, help="Respect .gitignore file patterns during analysis")
+@click.option("--max-files", type=int, default=100, help="Maximum number of files to analyze (default: 100)")
+@click.option("--max-entry-points", type=int, default=5, help="Maximum fallback entry points (default: 5)")
 @click.option(
     "--max-connectivity-files",
     type=int,
@@ -136,9 +130,7 @@ def generate_command(
             )
 
         if not config_manager.is_configured():
-            raise ConfigurationError(
-                "Configuration is incomplete. Please run 'codewiki config validate'"
-            )
+            raise ConfigurationError("Configuration is incomplete. Please run 'codewiki config validate'")
 
         config = config_manager.get_config()
         assert config is not None  # Should be true if is_configured() passed
@@ -154,9 +146,7 @@ def generate_command(
 
         logger.success(f"Repository valid: {repo_path.name}")
         if verbose:
-            logger.debug(
-                f"Detected languages: {', '.join(f'{lang} ({count} files)' for lang, count in languages)}"
-            )
+            logger.debug(f"Detected languages: {', '.join(f'{lang} ({count} files)' for lang, count in languages)}")
 
         # Check git repository
         if not is_git_repository(repo_path):
@@ -177,9 +167,7 @@ def generate_command(
 
         # Check for existing documentation
         if output_dir.exists() and list(output_dir.glob("*.md")):
-            if not click.confirm(
-                f"\n{output_dir} already contains documentation. Overwrite?", default=True
-            ):
+            if not click.confirm(f"\n{output_dir} already contains documentation. Overwrite?", default=True):
                 logger.info("Generation cancelled by user.")
                 sys.exit(EXIT_SUCCESS)
 

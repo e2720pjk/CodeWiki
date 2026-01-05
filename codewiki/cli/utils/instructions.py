@@ -4,6 +4,7 @@ Post-generation instructions generator.
 
 from pathlib import Path
 from typing import Optional
+
 import click
 
 
@@ -150,9 +151,7 @@ def display_post_generation_instructions(
         click.echo()
 
 
-def display_generation_summary(
-    success: bool, error_message: Optional[str] = None, output_dir: Optional[Path] = None
-):
+def display_generation_summary(success: bool, error_message: Optional[str] = None, output_dir: Optional[Path] = None):
     """
     Display generation summary (success or failure).
 

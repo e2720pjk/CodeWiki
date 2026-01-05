@@ -6,13 +6,13 @@ user settings stored in ~/.codewiki/config.json. These settings are converted
 to the backend Config class when running documentation generation.
 """
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
-from codewiki.cli.utils.validation import (
-    validate_url,
-    validate_model_name,
-)
 from codewiki.cli.models.job import AnalysisOptions
+from codewiki.cli.utils.validation import (
+    validate_model_name,
+    validate_url,
+)
 
 
 @dataclass
@@ -20,19 +20,76 @@ class Configuration:
     """
     CodeWiki configuration data model.
 
+    This configuration represents persistent user settings stored in ~/.codewiki/config.json.
+    These settings are converted to backend Config class when running documentation generation.
+
     Attributes:
-        base_url: LLM API base URL
+        base_url: LLM API base URL (e.g., https://api.anthropic.com)
+                  Required for all LLM operations.
+
         main_model: Primary model for documentation generation
+                   (e.g., claude-sonnet-4, gpt-4o)
+                   This model generates most documentation content.
+
         cluster_model: Model for module clustering
+                      Recommend top-tier model for better clustering quality
+                      (e.g., claude-sonnet-4, gpt-4o)
+                      Used only for module organization, not documentation generation.
+
         fallback_model: Fallback model for documentation generation
-        default_output: Default output directory
+                        (e.g., glm-4p5, gpt-4-turbo)
+                        Used when main model fails or is unavailable.
+                        Default: glm-4p5
+
+        default_output: Default output directory for generated docs
+                      Relative path or absolute path
+                      Default: "docs"
+
         max_files: Maximum number of files to analyze
+                   Range: 1-5000
+                   Default: 100
+                   Limits analysis to prevent OOM on large repositories
+                   Higher values = more comprehensive analysis but slower and more memory
+
         max_entry_points: Maximum fallback entry points
+                          Range: 1-max_files
+                          Default: 5
+                          Number of entry files to identify when no obvious entry point exists
+                          Used for repository structure analysis
+                          Higher values = more entry points detected but potentially irrelevant
+
         max_connectivity_files: Maximum fallback connectivity files
-        max_tokens_per_module: Maximum tokens per module (keeps default)
-        max_tokens_per_leaf: Maximum tokens per leaf module (keeps default)
-        enable_parallel_processing: Enable parallel processing
+                               Range: 1-max_files
+                               Default: 10
+                               Number of high-connectivity files to identify
+                               Used for dependency graph construction
+                               Higher values = more nodes in dependency graph but slower analysis
+
+        max_tokens_per_module: Maximum tokens per module
+                              Range: 1000-200000
+                              Default: 36369
+                              Controls module clustering and documentation generation size
+                              Higher values = larger modules with more content but potentially less focused
+
+        max_tokens_per_leaf: Maximum tokens per leaf module
+                            Range: 500-100000
+                            Default: 16000
+                            Controls individual documentation file size
+                            Higher values = longer documentation files but potentially overwhelming
+
+        enable_parallel_processing: Enable parallel processing of leaf modules
+                                 Type: boolean
+                                 Default: True
+                                 Improves performance on multi-core systems
+                                 Set to False on systems with limited CPU or memory
+                                 Parallel processing uses ThreadPoolExecutor with configurable workers
+
         concurrency_limit: Maximum concurrent API calls
+                         Range: 1-10
+                         Default: 5
+                         Controls parallelism for LLM API calls
+                         Higher values = faster documentation generation but higher API load
+                         Consider API rate limits and system resources when adjusting
     """
 
     base_url: str
@@ -47,6 +104,7 @@ class Configuration:
     max_tokens_per_leaf: int = 16000  # Keep default as requested
     enable_parallel_processing: bool = True
     concurrency_limit: int = 5
+    cache_size: int = 1000  # LLM cache size (number of entries, default: 1000)
 
     def validate(self):
         """
@@ -88,13 +146,12 @@ class Configuration:
             max_tokens_per_leaf=data.get("max_tokens_per_leaf", 16000),
             enable_parallel_processing=data.get("enable_parallel_processing", True),
             concurrency_limit=data.get("concurrency_limit", 5),
+            cache_size=data.get("cache_size", 1000),
         )
 
     def is_complete(self) -> bool:
         """Check if all required fields are set."""
-        return bool(
-            self.base_url and self.main_model and self.cluster_model and self.fallback_model
-        )
+        return bool(self.base_url and self.main_model and self.cluster_model and self.fallback_model)
 
     def to_backend_config(self, repo_path: str, output_dir: str, api_key: str):
         """
@@ -119,6 +176,7 @@ class Configuration:
             max_connectivity_files=self.max_connectivity_files,
             enable_parallel_processing=self.enable_parallel_processing,
             concurrency_limit=self.concurrency_limit,
+            cache_size=self.cache_size,
         )
 
         return Config.from_cli(

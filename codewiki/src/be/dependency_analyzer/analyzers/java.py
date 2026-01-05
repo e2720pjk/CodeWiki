@@ -1,9 +1,9 @@
 import logging
-from typing import List, Tuple, Optional
-from pathlib import Path
 import os
+from pathlib import Path
+from typing import List, Optional, Tuple
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -70,9 +70,7 @@ class TreeSitterJavaAnalyzer:
         node_name = None
 
         if node.type == "class_declaration":
-            is_abstract = any(
-                c.type == "modifier" and c.text.decode() == "abstract" for c in node.children
-            )
+            is_abstract = any(c.type == "modifier" and c.text.decode() == "abstract" for c in node.children)
             node_type = "abstract class" if is_abstract else "class"
             name_node = next((c for c in node.children if c.type == "identifier"), None)
             node_name = name_node.text.decode() if name_node else None
@@ -178,9 +176,7 @@ class TreeSitterJavaAnalyzer:
         # 3. Field Type Use: Class has field of another class/interface type
         if node.type == "field_declaration":
             containing_class = self._find_containing_class(node, top_level_nodes)
-            type_node = next(
-                (c for c in node.children if c.type in ["type_identifier", "generic_type"]), None
-            )
+            type_node = next((c for c in node.children if c.type in ["type_identifier", "generic_type"]), None)
             if containing_class and type_node:
                 field_type_name = self._get_type_name(type_node)
                 if field_type_name and not self._is_primitive_type(field_type_name):
@@ -233,9 +229,7 @@ class TreeSitterJavaAnalyzer:
         # 5. Object Creation
         if node.type == "object_creation_expression":
             containing_class = self._find_containing_class(node, top_level_nodes)
-            type_node = next(
-                (c for c in node.children if c.type in ["type_identifier", "generic_type"]), None
-            )
+            type_node = next((c for c in node.children if c.type in ["type_identifier", "generic_type"]), None)
             if containing_class and type_node:
                 created_type = self._get_type_name(type_node)
                 if created_type and not self._is_primitive_type(created_type):
@@ -348,11 +342,7 @@ class TreeSitterJavaAnalyzer:
                                         None,
                                     )
 
-                            if (
-                                identifier_node
-                                and type_node
-                                and identifier_node.text.decode() == variable_name
-                            ):
+                            if identifier_node and type_node and identifier_node.text.decode() == variable_name:
                                 field_type = self._get_type_name(type_node)
                                 return field_type
 
@@ -367,9 +357,7 @@ class TreeSitterJavaAnalyzer:
                     if decl_child.type in ["type_identifier", "generic_type"]:
                         type_node = decl_child
                     elif decl_child.type == "variable_declarator":
-                        identifier_node = next(
-                            (c for c in decl_child.children if c.type == "identifier"), None
-                        )
+                        identifier_node = next((c for c in decl_child.children if c.type == "identifier"), None)
 
                 if identifier_node and type_node and identifier_node.text.decode() == variable_name:
                     return self._get_type_name(type_node)

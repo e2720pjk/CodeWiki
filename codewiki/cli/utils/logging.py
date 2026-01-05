@@ -4,6 +4,7 @@ Logging utilities for CLI with colored output and progress tracking.
 
 from datetime import datetime
 from typing import Optional
+
 import click
 
 

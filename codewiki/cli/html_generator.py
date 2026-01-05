@@ -4,10 +4,10 @@ HTML generator for GitHub Pages documentation viewer.
 
 import json
 from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from codewiki.cli.utils.errors import FileSystemError
-from codewiki.cli.utils.fs import safe_write, safe_read
+from codewiki.cli.utils.fs import safe_read, safe_write
 
 
 class HTMLGenerator:
@@ -44,9 +44,7 @@ class HTMLGenerator:
         module_tree_path = docs_dir / "module_tree.json"
         if not module_tree_path.exists():
             # Fallback to a simple structure
-            return {
-                "Overview": {"description": "Repository overview", "components": [], "children": {}}
-            }
+            return {"Overview": {"description": "Repository overview", "components": [], "children": {}}}
 
         try:
             content = safe_read(module_tree_path)
@@ -197,28 +195,20 @@ class HTMLGenerator:
                 if isinstance(timestamp, str):
                     dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
                     formatted_date = dt.strftime("%Y-%m-%d")
-                    html_parts.append(
-                        f'<div class="info-row"><strong>Generated:</strong> {formatted_date}</div>'
-                    )
+                    html_parts.append(f'<div class="info-row"><strong>Generated:</strong> {formatted_date}</div>')
             except Exception:
                 pass
 
         if info.get("commit_id"):
             commit_short = info["commit_id"][:8]
-            html_parts.append(
-                f'<div class="info-row"><strong>Commit:</strong> {commit_short}</div>'
-            )
+            html_parts.append(f'<div class="info-row"><strong>Commit:</strong> {commit_short}</div>')
 
         if stats.get("total_components"):
             components_str = f"{stats['total_components']:,}"
-            html_parts.append(
-                f'<div class="info-row"><strong>Components:</strong> {components_str}</div>'
-            )
+            html_parts.append(f'<div class="info-row"><strong>Components:</strong> {components_str}</div>')
 
         if stats.get("max_depth"):
-            html_parts.append(
-                f'<div class="info-row"><strong>Max Depth:</strong> {stats["max_depth"]}</div>'
-            )
+            html_parts.append(f'<div class="info-row"><strong>Max Depth:</strong> {stats["max_depth"]}</div>')
 
         return "\n                ".join(html_parts)
 

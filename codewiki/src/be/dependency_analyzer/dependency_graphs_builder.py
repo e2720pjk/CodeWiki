@@ -1,14 +1,14 @@
-from typing import Dict, List, Any
+import logging
 import os
-from codewiki.src.config import Config
+from typing import Any, Dict, List
+
 from codewiki.src.be.dependency_analyzer.ast_parser import DependencyParser
 from codewiki.src.be.dependency_analyzer.topo_sort import (
     build_graph_from_components,
     get_leaf_nodes,
 )
+from codewiki.src.config import Config
 from codewiki.src.utils import file_manager
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -80,10 +80,7 @@ class DependencyGraphBuilder:
             if (
                 not isinstance(leaf_node, str)
                 or leaf_node.strip() == ""
-                or any(
-                    err_keyword in leaf_node.lower()
-                    for err_keyword in ["error", "exception", "failed", "invalid"]
-                )
+                or any(err_keyword in leaf_node.lower() for err_keyword in ["error", "exception", "failed", "invalid"])
             ):
                 logger.warning(f"Skipping invalid leaf node identifier: '{leaf_node}'")
                 continue

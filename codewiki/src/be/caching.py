@@ -8,7 +8,7 @@ Provides LRU caching with configurable size limits.
 import hashlib
 import logging
 import threading
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -143,9 +143,7 @@ def get_llm_cache() -> LLMPromptCache:
     return llm_cache
 
 
-def cache_llm_response(
-    prompt: str, model: str, response: str, max_tokens: Optional[int] = None
-) -> None:
+def cache_llm_response(prompt: str, model: str, response: str, max_tokens: Optional[int] = None) -> None:
     """
     Cache an LLM response.
 
@@ -158,9 +156,7 @@ def cache_llm_response(
     llm_cache.set(prompt, model, response, max_tokens)
 
 
-def get_cached_llm_response(
-    prompt: str, model: str, max_tokens: Optional[int] = None
-) -> Optional[str]:
+def get_cached_llm_response(prompt: str, model: str, max_tokens: Optional[int] = None) -> Optional[str]:
     """
     Get cached LLM response.
 

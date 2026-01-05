@@ -2,12 +2,12 @@
 Documentation job data models.
 """
 
-from dataclasses import dataclass, field, asdict
-from datetime import datetime
-from typing import List, Optional, Dict, Any
-from enum import Enum
-import uuid
 import json
+import uuid
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
+from enum import Enum
+from typing import Any, Dict, List, Optional
 
 
 class JobStatus(str, Enum):
@@ -32,6 +32,7 @@ class AnalysisOptions:
     concurrency_limit: int = 5
     enable_llm_cache: bool = True
     agent_retries: int = 3
+    cache_size: int = 1000  # LLM cache size (number of entries)
 
 
 @dataclass

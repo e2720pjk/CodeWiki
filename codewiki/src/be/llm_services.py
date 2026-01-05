@@ -3,14 +3,14 @@ LLM service factory for creating configured LLM clients.
 """
 
 import asyncio
-import httpx
 import logging
 from typing import Dict, Optional
-from pydantic_ai.models.openai import OpenAIModel
-from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.models.openai import OpenAIModelSettings
+
+import httpx
+from openai import AsyncOpenAI, OpenAI
 from pydantic_ai.models.fallback import FallbackModel
-from openai import OpenAI, AsyncOpenAI
+from pydantic_ai.models.openai import OpenAIModel, OpenAIModelSettings
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from codewiki.src.config import Config
 
@@ -30,6 +30,21 @@ def get_llm_cache():
 
 
 logger = logging.getLogger(__name__)
+
+
+def initialize_llm_cache(config: Config):
+    """
+    Initialize LLM cache with configuration-based size.
+
+    Args:
+        config: Configuration object containing cache_size in analysis_options
+    """
+    from codewiki.src.be.caching import llm_cache
+
+    cache_size = config.analysis_options.cache_size
+    llm_cache.max_size = cache_size
+
+    logger.info(f"LLM cache initialized with max_size={cache_size}")
 
 
 def create_main_model(config: Config) -> OpenAIModel:
@@ -118,9 +133,7 @@ class ClientManager:
 client_manager = ClientManager()
 
 
-def call_llm(
-    prompt: str, config: Config, model: Optional[str] = None, temperature: float = 0.0
-) -> str:
+def call_llm(prompt: str, config: Config, model: Optional[str] = None, temperature: float = 0.0) -> str:
     """
     Call LLM with the given prompt (synchronous version for backward compatibility).
 
@@ -235,8 +248,7 @@ async def call_llm_async_with_retry(
                 # Calculate exponential backoff delay
                 delay = base_delay * (2**attempt)
                 logger.warning(
-                    f"LLM call failed (attempt {attempt + 1}/{max_retries + 1}), "
-                    f"retrying in {delay:.2f}s: {e}"
+                    f"LLM call failed (attempt {attempt + 1}/{max_retries + 1}), " f"retrying in {delay:.2f}s: {e}"
                 )
 
                 await asyncio.sleep(delay)

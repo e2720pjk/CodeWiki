@@ -11,24 +11,20 @@ Features:
 """
 
 import argparse
-from fastapi import FastAPI, Request, Form
+
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse
 
-from .cache_manager import CacheManager
 from .background_worker import BackgroundWorker
-from .routes import WebRoutes
+from .cache_manager import CacheManager
 from .config import WebAppConfig
-
+from .routes import WebRoutes
 
 # Initialize FastAPI app
-app = FastAPI(
-    title="CodeWiki", description="Generate comprehensive documentation for any GitHub repository"
-)
+app = FastAPI(title="CodeWiki", description="Generate comprehensive documentation for any GitHub repository")
 
 # Initialize components
-cache_manager = CacheManager(
-    cache_dir=WebAppConfig.CACHE_DIR, cache_expiry_days=WebAppConfig.CACHE_EXPIRY_DAYS
-)
+cache_manager = CacheManager(cache_dir=WebAppConfig.CACHE_DIR, cache_expiry_days=WebAppConfig.CACHE_EXPIRY_DAYS)
 background_worker = BackgroundWorker(cache_manager=cache_manager, temp_dir=WebAppConfig.TEMP_DIR)
 web_routes = WebRoutes(background_worker=background_worker, cache_manager=cache_manager)
 

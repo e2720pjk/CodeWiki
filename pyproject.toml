@@ -101,8 +101,40 @@ packages = [
 codewiki = ["templates/**/*", "py.typed"]
 
 [tool.black]
-line-length = 100
+line-length = 120
 target-version = ['py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+    | \.venv
+    | venv
+    | build
+    | dist
+    | __pycache__
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+
+[tool.flake8]
+max-line-length = 120
+extend-ignore = ["E203", "W503"]
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "build",
+    "dist"
+]
 
 [tool.mypy]
 python_version = "3.12"
@@ -112,7 +144,7 @@ disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py312"
 
 [tool.pytest.ini_options]

@@ -21,9 +21,10 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from markdown_it import MarkdownIt
 
+from codewiki.src.utils import file_manager
+
 from .template_utils import render_template
 from .templates import DOCS_VIEW_TEMPLATE
-from codewiki.src.utils import file_manager
 
 app = FastAPI(
     title="Documentation Server",
@@ -125,9 +126,7 @@ async def index():
     overview_file = Path(DOCS_FOLDER) / "overview.md"
 
     if not overview_file.exists():
-        raise HTTPException(
-            status_code=404, detail="overview.md not found in the documentation folder"
-        )
+        raise HTTPException(status_code=404, detail="overview.md not found in the documentation folder")
 
     try:
         content = file_manager.load_text(overview_file)
@@ -211,9 +210,7 @@ def main():
         required=True,
         help="Path to the documentation folder containing markdown files and module_tree.json",
     )
-    parser.add_argument(
-        "--port", type=int, default=8000, help="Port to run the server on (default: 8000)"
-    )
+    parser.add_argument("--port", type=int, default=8000, help="Port to run the server on (default: 8000)")
     parser.add_argument(
         "--host",
         type=str,

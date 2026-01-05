@@ -6,15 +6,16 @@ Coordinates language-specific analyzers to build comprehensive call graphs
 across different programming languages in a repository.
 """
 
-from typing import Dict, List
 import logging
-import traceback
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from collections import defaultdict
+import os
 import threading
+import traceback
+from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Dict, List
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.patterns import CODE_EXTENSIONS
 from codewiki.src.be.dependency_analyzer.utils.security import safe_open_text
 
@@ -28,9 +29,7 @@ class CallGraphAnalyzer:
         self.call_relationships: List[CallRelationship] = []
         logger.debug("CallGraphAnalyzer initialized.")
 
-    def analyze_code_files(
-        self, code_files: List[Dict], base_dir: str, enable_parallel: bool = True
-    ) -> Dict:
+    def analyze_code_files(self, code_files: List[Dict], base_dir: str, enable_parallel: bool = True) -> Dict:
         """
         Complete analysis: Analyze all files to build complete call graph with all nodes.
 
@@ -72,7 +71,10 @@ class CallGraphAnalyzer:
         self.call_relationships = []
 
         # Process languages in parallel
-        max_workers = min(4, len(files_by_language))  # Conservative limit
+        max_workers = min(os.cpu_count() or 4, len(files_by_language), 8)
+        logger.debug(
+            f"Using {max_workers} workers for parallel analysis (CPU cores: {os.cpu_count()}, language groups: {len(files_by_language)})"
+        )
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit tasks for each language group
             future_to_language = {
@@ -161,9 +163,7 @@ class CallGraphAnalyzer:
         for file_info in files:
             try:
                 # Use existing _analyze_code_file logic but return results
-                file_functions, file_relationships = self._analyze_code_file_safe(
-                    base_dir, file_info
-                )
+                file_functions, file_relationships = self._analyze_code_file_safe(base_dir, file_info)
                 local_functions.update(file_functions)
                 local_relationships.extend(file_relationships)
             except Exception as e:
@@ -182,9 +182,7 @@ class CallGraphAnalyzer:
             "relationships_count": len(local_relationships),
         }
 
-    def _analyze_code_file_safe(
-        self, base_dir: str, file_info: Dict
-    ) -> tuple[Dict[str, Node], List[CallRelationship]]:
+    def _analyze_code_file_safe(self, base_dir: str, file_info: Dict) -> tuple[Dict[str, Node], List[CallRelationship]]:
         """Thread-safe version of _analyze_code_file that returns results."""
         base = Path(base_dir)
         file_path = base / file_info["path"]
@@ -197,25 +195,15 @@ class CallGraphAnalyzer:
             relationships = []
 
             if language == "python":
-                functions, relationships = self._analyze_python_file_safe(
-                    file_path, content, base_dir
-                )
+                functions, relationships = self._analyze_python_file_safe(file_path, content, base_dir)
             elif language == "javascript":
-                functions, relationships = self._analyze_javascript_file_safe(
-                    file_path, content, base_dir
-                )
+                functions, relationships = self._analyze_javascript_file_safe(file_path, content, base_dir)
             elif language == "typescript":
-                functions, relationships = self._analyze_typescript_file_safe(
-                    file_path, content, base_dir
-                )
+                functions, relationships = self._analyze_typescript_file_safe(file_path, content, base_dir)
             elif language == "java":
-                functions, relationships = self._analyze_java_file_safe(
-                    file_path, content, base_dir
-                )
+                functions, relationships = self._analyze_java_file_safe(file_path, content, base_dir)
             elif language == "csharp":
-                functions, relationships = self._analyze_csharp_file_safe(
-                    file_path, content, base_dir
-                )
+                functions, relationships = self._analyze_csharp_file_safe(file_path, content, base_dir)
             elif language == "c":
                 functions, relationships = self._analyze_c_file_safe(file_path, content, base_dir)
             elif language == "cpp":
@@ -359,9 +347,7 @@ class CallGraphAnalyzer:
                 analyze_javascript_file_treesitter,
             )
 
-            functions, relationships = analyze_javascript_file_treesitter(
-                file_path, content, repo_path=repo_dir
-            )
+            functions, relationships = analyze_javascript_file_treesitter(file_path, content, repo_path=repo_dir)
 
             for func in functions:
                 func_id = func.id if func.id else f"{file_path}:{func.name}"
@@ -381,9 +367,7 @@ class CallGraphAnalyzer:
                 analyze_javascript_file_treesitter,
             )
 
-            functions, relationships = analyze_javascript_file_treesitter(
-                file_path, content, repo_path=repo_dir
-            )
+            functions, relationships = analyze_javascript_file_treesitter(file_path, content, repo_path=repo_dir)
 
             function_dict = {}
             for func in functions:
@@ -409,9 +393,7 @@ class CallGraphAnalyzer:
                 analyze_typescript_file_treesitter,
             )
 
-            functions, relationships = analyze_typescript_file_treesitter(
-                file_path, content, repo_path=repo_dir
-            )
+            functions, relationships = analyze_typescript_file_treesitter(file_path, content, repo_path=repo_dir)
 
             for func in functions:
                 func_id = func.id if func.id else f"{file_path}:{func.name}"
@@ -431,9 +413,7 @@ class CallGraphAnalyzer:
                 analyze_typescript_file_treesitter,
             )
 
-            functions, relationships = analyze_typescript_file_treesitter(
-                file_path, content, repo_path=repo_dir
-            )
+            functions, relationships = analyze_typescript_file_treesitter(file_path, content, repo_path=repo_dir)
 
             function_dict = {}
             for func in functions:
@@ -751,11 +731,7 @@ class CallGraphAnalyzer:
                     "purpose": (func.docstring.split("\n")[0] if func.docstring else None),
                     "parameters": func.parameters,
                     "is_recursive": func.name
-                    in [
-                        rel.callee
-                        for rel in self.call_relationships
-                        if rel.caller.endswith(func.name)
-                    ],
+                    in [rel.callee for rel in self.call_relationships if rel.caller.endswith(func.name)],
                 }
                 for func in self.functions.values()
             ],
@@ -809,15 +785,11 @@ class CallGraphAnalyzer:
         for func_id in self.functions.keys():
             degree_centrality[func_id] = len(graph.get(func_id, set()))
 
-        sorted_func_ids = sorted(
-            degree_centrality.keys(), key=lambda x: degree_centrality.get(x, 0), reverse=True
-        )
+        sorted_func_ids = sorted(degree_centrality.keys(), key=lambda x: degree_centrality.get(x, 0), reverse=True)
 
         selected_func_ids = sorted_func_ids[:target_count]
 
-        self.functions = {
-            fid: func for fid, func in self.functions.items() if fid in selected_func_ids
-        }
+        self.functions = {fid: func for fid, func in self.functions.items() if fid in selected_func_ids}
 
         self.call_relationships = [
             rel

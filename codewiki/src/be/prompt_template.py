@@ -208,7 +208,8 @@ Please shortlist the files, folders representing the core functionality and igno
 Reasoning at first, then return the list of relative paths in JSON format.
 """
 
-from typing import Dict, Any, Optional, List  # noqa: E402
+from typing import Any, Dict, List, Optional  # noqa: E402
+
 from codewiki.src.utils import file_manager  # noqa: E402
 
 EXTENSION_TO_LANGUAGE = {
@@ -294,15 +295,11 @@ def format_user_prompt(
         for component_id in component_ids_in_file:
             core_component_codes += f"- {component_id}\n"
 
-        core_component_codes += (
-            f"\n## File Content:\n```{EXTENSION_TO_LANGUAGE['.' + path.split('.')[-1]]}\n"
-        )
+        core_component_codes += f"\n## File Content:\n```{EXTENSION_TO_LANGUAGE['.' + path.split('.')[-1]]}\n"
 
         # Read content of the file using the first component's file path
         try:
-            core_component_codes += file_manager.load_text(
-                components[component_ids_in_file[0]].file_path
-            )
+            core_component_codes += file_manager.load_text(components[component_ids_in_file[0]].file_path)
         except (FileNotFoundError, IOError) as e:
             core_component_codes += f"# Error reading file: {e}\n"
 
@@ -339,11 +336,7 @@ def format_cluster_prompt(
                 lines.append(f"{'  ' * indent}{key}")
 
             lines.append(f"{'  ' * (indent + 1)} Core components: {', '.join(value['components'])}")
-            if (
-                ("children" in value)
-                and isinstance(value["children"], dict)
-                and len(value["children"]) > 0
-            ):
+            if ("children" in value) and isinstance(value["children"], dict) and len(value["children"]) > 0:
                 lines.append(f"{'  ' * (indent + 1)} Children:")
                 _format_module_tree(value["children"], indent + 2)
 

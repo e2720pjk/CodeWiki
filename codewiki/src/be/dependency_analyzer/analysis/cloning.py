@@ -1,8 +1,8 @@
 import os
 import shutil
-import tempfile
-import subprocess
 import stat
+import subprocess
+import tempfile
 import time
 
 GIT_EXECUTABLE_PATH = shutil.which("git")
@@ -68,9 +68,7 @@ def clone_repository(github_url: str) -> str:
         RuntimeError: If cloning fails or git executable is not found.
     """
     if not GIT_EXECUTABLE_PATH:
-        raise RuntimeError(
-            "Git executable not found. Please install Git and ensure it is in the system's PATH."
-        )
+        raise RuntimeError("Git executable not found. Please install Git and ensure it is in the system's PATH.")
 
     sanitized_url = sanitize_github_url(github_url)
 
@@ -129,9 +127,7 @@ def clone_repository(github_url: str) -> str:
                 with open(sparse_checkout_path, "w") as f:
                     f.write("*\n")
                     f.write("!**/tests/**/CvnF9nAXfESwhrtdkjGhX2wAkKHzwr8N2rjExPK8eZYS/**\n")
-                    f.write(
-                        "!**/0x0000000000000000000000000000000000000000000000000000000000000002/**\n"
-                    )
+                    f.write("!**/0x0000000000000000000000000000000000000000000000000000000000000002/**\n")
 
                 subprocess.run(
                     [

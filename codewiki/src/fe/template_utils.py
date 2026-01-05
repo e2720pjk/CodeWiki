@@ -3,8 +3,9 @@
 Template utilities for FastAPI applications using Jinja2.
 """
 
-from jinja2 import Environment, BaseLoader, select_autoescape
-from typing import Dict, Any
+from typing import Any, Dict
+
+from jinja2 import BaseLoader, Environment, select_autoescape
 
 
 class StringTemplateLoader(BaseLoader):

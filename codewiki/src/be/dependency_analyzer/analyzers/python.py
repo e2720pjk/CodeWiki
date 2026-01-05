@@ -1,11 +1,10 @@
 import ast
 import logging
-import warnings
-from typing import List, Tuple, Optional
 import os
+import warnings
+from typing import List, Optional, Tuple
 
-
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 
 logger = logging.getLogger(__name__)
 

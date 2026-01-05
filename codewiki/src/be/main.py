@@ -8,9 +8,9 @@ This module orchestrates the documentation generation process by:
 4. Creating overview documentation
 """
 
-import logging
 import argparse
 import asyncio
+import logging
 import traceback
 
 # Configure logging and monitoring

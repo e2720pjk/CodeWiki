@@ -3,23 +3,24 @@
 Background worker for processing documentation generation jobs.
 """
 
-import os
-import time
-import threading
 import asyncio
+import os
 import shutil
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from queue import Queue
 from typing import Dict
 
 from codewiki.src.be.documentation_generator import DocumentationGenerator
-from codewiki.src.config import Config, MAIN_MODEL
-from .models import JobStatus
-from .cache_manager import CacheManager
-from .github_processor import GitHubRepoProcessor
-from .config import WebAppConfig
+from codewiki.src.config import MAIN_MODEL, Config
 from codewiki.src.utils import file_manager
+
+from .cache_manager import CacheManager
+from .config import WebAppConfig
+from .github_processor import GitHubRepoProcessor
+from .models import JobStatus
 
 
 class BackgroundWorker:
@@ -78,14 +79,10 @@ class BackgroundWorker:
                         status=job_data["status"],
                         created_at=datetime.fromisoformat(job_data["created_at"]),
                         started_at=(
-                            datetime.fromisoformat(job_data["started_at"])
-                            if job_data.get("started_at")
-                            else None
+                            datetime.fromisoformat(job_data["started_at"]) if job_data.get("started_at") else None
                         ),
                         completed_at=(
-                            datetime.fromisoformat(job_data["completed_at"])
-                            if job_data.get("completed_at")
-                            else None
+                            datetime.fromisoformat(job_data["completed_at"]) if job_data.get("completed_at") else None
                         ),
                         error_message=job_data.get("error_message"),
                         progress=job_data.get("progress", ""),
@@ -207,9 +204,7 @@ class BackgroundWorker:
 
             job.progress = f"Cloning repository {repo_info['full_name']}..."
 
-            if not GitHubRepoProcessor.clone_repository(
-                repo_info["clone_url"], temp_repo_dir, job.commit_id
-            ):
+            if not GitHubRepoProcessor.clone_repository(repo_info["clone_url"], temp_repo_dir, job.commit_id):
                 raise Exception("Failed to clone repository")
 
             # Generate documentation

@@ -4,16 +4,15 @@
 This tool is used to view the given source code and view/edit the documentation files in the separate docs directory.
 """
 
+import io
 import json
+import logging
 import re
 import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Tuple, Literal
-import io
-
-import logging
+from typing import List, Literal, Optional, Tuple
 
 # Configure logging and monitoring
 
@@ -21,9 +20,8 @@ logger = logging.getLogger(__name__)
 
 from pydantic_ai import RunContext, Tool  # noqa: E402
 
-from .deps import CodeWikiDeps  # noqa: E402
 from ..utils import validate_mermaid_diagrams  # noqa: E402
-
+from .deps import CodeWikiDeps  # noqa: E402
 
 # There are some super strange "ascii can't decode x" errors,
 # that can be solved with setting the default encoding for stdout
@@ -135,11 +133,7 @@ def _update_previous_errors(
             # either way (we wouldn't know how to adjust the line number anyway)
             continue
         # We're out of the edit window, so we need to adjust the line number
-        updated.append(
-            Flake8Error(
-                error.filename, error.line_number + lines_added, error.col_number, error.problem
-            )
-        )
+        updated.append(Flake8Error(error.filename, error.line_number + lines_added, error.col_number, error.problem))
     return updated
 
 
@@ -167,23 +161,17 @@ def format_flake8_output(
     # print("Replacement n lines:", replacement_n_lines)
     # print("Previous errors string:", previous_errors_string)
     # print("Input string:", input_string)
-    errors = [
-        Flake8Error.from_line(line.strip()) for line in input_string.split("\n") if line.strip()
-    ]
+    errors = [Flake8Error.from_line(line.strip()) for line in input_string.split("\n") if line.strip()]
     # print(f"New errors before filtering: {errors=}")
     lines = []
     if previous_errors_string:
         assert replacement_window is not None
         assert replacement_n_lines is not None
         previous_errors = [
-            Flake8Error.from_line(line.strip())
-            for line in previous_errors_string.split("\n")
-            if line.strip()
+            Flake8Error.from_line(line.strip()) for line in previous_errors_string.split("\n") if line.strip()
         ]
         # print(f"Previous errors before updating: {previous_errors=}")
-        previous_errors = _update_previous_errors(
-            previous_errors, replacement_window, replacement_n_lines
-        )
+        previous_errors = _update_previous_errors(previous_errors, replacement_window, replacement_n_lines)
         # print(f"Previous errors after updating: {previous_errors=}")
         errors = [error for error in errors if error not in previous_errors]
         # Sometimes new errors appear above the replacement window that were 'shadowed' by the previous errors
@@ -204,15 +192,14 @@ def flake8(file_path: str) -> str:
         return ""
     cmd = "flake8 --isolated --select=F821,F822,F831,E111,E112,E113,E999,E902 {file_path}"
     # don't use capture_output because it's not compatible with python3.6
-    out = subprocess.run(
-        cmd.format(file_path=file_path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
-    )
+    out = subprocess.run(cmd.format(file_path=file_path), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     return out.stdout.decode()
 
 
 class Filemap:
     def show_filemap(self, file_contents: str, encoding: str = "utf8"):
         import warnings
+
         from tree_sitter_languages import get_language, get_parser
 
         warnings.simplefilter("ignore", category=FutureWarning)
@@ -241,18 +228,10 @@ class Filemap:
         ]
         # Note that tree-sitter line numbers are 0-indexed, but we display 1-indexed.
         elide_lines = {line for start, end in elide_line_ranges for line in range(start, end + 1)}
-        elide_messages = [
-            (start, f"... eliding lines {start + 1}-{end + 1} ...")
-            for start, end in elide_line_ranges
-        ]
+        elide_messages = [(start, f"... eliding lines {start + 1}-{end + 1} ...") for start, end in elide_line_ranges]
         out = []
         for i, line in sorted(
-            elide_messages
-            + [
-                (i, line)
-                for i, line in enumerate(file_contents.splitlines())
-                if i not in elide_lines
-            ]
+            elide_messages + [(i, line) for i, line in enumerate(file_contents.splitlines()) if i not in elide_lines]
         ):
             out.append(f"{i + 1:6d} {line}")
         return "\n".join(out)
@@ -270,9 +249,7 @@ class WindowExpander:
         if self.suffix:
             assert self.suffix.startswith(".")
 
-    def _find_breakpoints(
-        self, lines: List[str], current_line: int, direction=1, max_added_lines: int = 30
-    ) -> int:
+    def _find_breakpoints(self, lines: List[str], current_line: int, direction=1, max_added_lines: int = 30) -> int:
         """Returns 1-based line number of breakpoint. This line is meant to still be included in the viewport.
 
         Args:
@@ -339,20 +316,13 @@ class WindowExpander:
             # print(f"Score {score} for line {i_line} ({line})")
 
         # print(f"Best score {best_score} for line {best_breakpoint} ({lines[best_breakpoint-1]})")
-        if (
-            direction == 1
-            and best_breakpoint < current_line
-            or direction == -1
-            and best_breakpoint > current_line
-        ):
+        if direction == 1 and best_breakpoint < current_line or direction == -1 and best_breakpoint > current_line:
             # We don't want to shrink the view port, so we return the current line
             return current_line
 
         return best_breakpoint
 
-    def expand_window(
-        self, lines: List[str], start: int, stop: int, max_added_lines: int
-    ) -> Tuple[int, int]:
+    def expand_window(self, lines: List[str], start: int, stop: int, max_added_lines: int) -> Tuple[int, int]:
         """
 
         Args:
@@ -370,9 +340,7 @@ class WindowExpander:
         if max_added_lines <= 0:
             # Already at max range, no expansion
             return start, stop
-        new_start = self._find_breakpoints(
-            lines, start, direction=-1, max_added_lines=max_added_lines
-        )
+        new_start = self._find_breakpoints(lines, start, direction=-1, max_added_lines=max_added_lines)
         new_stop = self._find_breakpoints(lines, stop, direction=1, max_added_lines=max_added_lines)
         # print(f"Expanded window is {new_start} to {new_stop}")
         assert new_start <= new_stop, (new_start, new_stop)
@@ -472,9 +440,7 @@ class EditTool:
             return False
         # Check if path exists
         if not path.exists() and command != "create":
-            self.logs.append(
-                f"The path {self._get_display_path(path)} does not exist. Please provide a valid path."
-            )
+            self.logs.append(f"The path {self._get_display_path(path)} does not exist. Please provide a valid path.")
             return False
         if path.exists() and command == "create":
             self.logs.append(
@@ -504,9 +470,7 @@ class EditTool:
         """Implement the view command"""
         if path.is_dir():
             if view_range:
-                self.logs.append(
-                    "The `view_range` parameter is not allowed when `path` points to a directory."
-                )
+                self.logs.append("The `view_range` parameter is not allowed when `path` points to a directory.")
                 return
 
             out = subprocess.run(
@@ -560,9 +524,7 @@ class EditTool:
         else:
             if path.suffix == ".py" and len(file_content) > MAX_RESPONSE_LEN and USE_FILEMAP:
                 try:
-                    filemap = Filemap().show_filemap(
-                        file_content, encoding=self._encoding or "utf-8"
-                    )
+                    filemap = Filemap().show_filemap(file_content, encoding=self._encoding or "utf-8")
                 except Exception:
                     # If we fail to show the filemap, just show the truncated file content
                     pass
@@ -581,9 +543,7 @@ class EditTool:
             init_line = 1
 
         # init_line is 1-based
-        self.logs.append(
-            self._make_output(file_content, self._get_display_path(path), init_line=init_line)
-        )
+        self.logs.append(self._make_output(file_content, self._get_display_path(path), init_line=init_line))
 
     def str_replace(self, path: Path, old_str: str, new_str: Optional[str]):
         """Implement the str_replace command, which replaces old_str with new_str in the file content"""
@@ -608,9 +568,7 @@ class EditTool:
             return
 
         if new_str == old_str:
-            self.logs.append(
-                f"No replacement was performed, old_str `{old_str}` is the same as new_str `{new_str}`."
-            )
+            self.logs.append(f"No replacement was performed, old_str `{old_str}` is the same as new_str `{new_str}`.")
             return
 
         pre_edit_lint = ""
@@ -669,9 +627,7 @@ class EditTool:
 
         # Prepare the success message
         success_msg = f"The file {self._get_display_path(path)} has been edited. "
-        success_msg += self._make_output(
-            snippet, f"a snippet of {self._get_display_path(path)}", start_line
-        )
+        success_msg += self._make_output(snippet, f"a snippet of {self._get_display_path(path)}", start_line)
         success_msg += "Review the changes and make sure they are as expected. Edit the file again if necessary."
         success_msg += epilogue
 
@@ -691,9 +647,7 @@ class EditTool:
             return
 
         new_str_lines = new_str.split("\n")
-        new_file_text_lines = (
-            file_text_lines[:insert_line] + new_str_lines + file_text_lines[insert_line:]
-        )
+        new_file_text_lines = file_text_lines[:insert_line] + new_str_lines + file_text_lines[insert_line:]
         snippet_lines = (
             file_text_lines[max(0, insert_line - SNIPPET_LINES) : insert_line]
             + new_str_lines
@@ -758,9 +712,7 @@ class EditTool:
         try:
             path.write_text(file, encoding=self._encoding or "utf-8")
         except Exception as e:
-            self.logs.append(
-                f"Ran into {e} while trying to write to {self._get_display_path(path)}"
-            )
+            self.logs.append(f"Ran into {e} while trying to write to {self._get_display_path(path)}")
             return
 
     def _make_output(
@@ -774,12 +726,8 @@ class EditTool:
         file_content = maybe_truncate(file_content)
         if expand_tabs:
             file_content = file_content.expandtabs()
-        file_content = "\n".join(
-            [f"{i + init_line:6}\t{line}" for i, line in enumerate(file_content.split("\n"))]
-        )
-        return (
-            f"Here's the result of running `cat -n` on {file_descriptor}:\n" + file_content + "\n"
-        )
+        file_content = "\n".join([f"{i + init_line:6}\t{line}" for i, line in enumerate(file_content.split("\n"))])
+        return f"Here's the result of running `cat -n` on {file_descriptor}:\n" + file_content + "\n"
 
 
 async def str_replace_editor(

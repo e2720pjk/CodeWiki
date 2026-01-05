@@ -1,13 +1,13 @@
 import logging
 import os
 import traceback
-from typing import List, Optional, Tuple
 from pathlib import Path
+from typing import List, Optional, Tuple
 
-from tree_sitter import Parser, Language
 import tree_sitter_typescript
+from tree_sitter import Language, Parser
 
-from codewiki.src.be.dependency_analyzer.models.core import Node, CallRelationship
+from codewiki.src.be.dependency_analyzer.models.core import CallRelationship, Node
 from codewiki.src.be.dependency_analyzer.utils.thread_safe_parser import get_thread_safe_parser
 
 logger = logging.getLogger(__name__)
@@ -171,11 +171,7 @@ class TreeSitterTSAnalyzer:
                         break
                 break
             elif child.type == "namespace":
-                name = (
-                    self._get_node_text(child.children[1])
-                    if len(child.children) > 1
-                    else "unknown_namespace"
-                )
+                name = self._get_node_text(child.children[1]) if len(child.children) > 1 else "unknown_namespace"
                 break
 
         return {
@@ -217,9 +213,7 @@ class TreeSitterTSAnalyzer:
         parameters = self._extract_parameters(node)
         code_snippet = self._get_node_text(node)
 
-        is_async = (
-            "async" in code_snippet.split("function")[0] if "function" in code_snippet else False
-        )
+        is_async = "async" in code_snippet.split("function")[0] if "function" in code_snippet else False
         display_name = f"{'async ' if is_async else ''}{func_type} {func_name}"
 
         return {
@@ -273,9 +267,7 @@ class TreeSitterTSAnalyzer:
         is_async = "async" in code_snippet
         is_static = "static" in code_snippet
 
-        display_name = (
-            f"{'static ' if is_static else ''}{'async ' if is_async else ''}method {method_name}"
-        )
+        display_name = f"{'static ' if is_static else ''}{'async ' if is_async else ''}method {method_name}"
 
         return {
             "name": method_name,
@@ -291,9 +283,7 @@ class TreeSitterTSAnalyzer:
         }
 
     def _extract_class_entity(self, node, class_type: str, depth: int) -> dict:
-        name_node = self._find_child_by_type(node, "type_identifier") or self._find_child_by_type(
-            node, "identifier"
-        )
+        name_node = self._find_child_by_type(node, "type_identifier") or self._find_child_by_type(node, "identifier")
         if not name_node:
             return None
 
@@ -456,9 +446,9 @@ class TreeSitterTSAnalyzer:
             var_declarator = self._find_child_by_type(lexical_decl, "variable_declarator")
             if var_declarator:
                 name_node = self._find_child_by_type(var_declarator, "identifier")
-                func_expr = self._find_child_by_type(
-                    var_declarator, "arrow_function"
-                ) or self._find_child_by_type(var_declarator, "function_expression")
+                func_expr = self._find_child_by_type(var_declarator, "arrow_function") or self._find_child_by_type(
+                    var_declarator, "function_expression"
+                )
                 if name_node and func_expr:
                     var_name = self._get_node_text(name_node)
                     return {
@@ -516,9 +506,9 @@ class TreeSitterTSAnalyzer:
         # Check declaration type (const/let)
         decl_type = "const" if "const" in code_snippet else "let"
 
-        has_function = self._find_child_by_type(
-            var_declarator, "arrow_function"
-        ) or self._find_child_by_type(var_declarator, "function_expression")
+        has_function = self._find_child_by_type(var_declarator, "arrow_function") or self._find_child_by_type(
+            var_declarator, "function_expression"
+        )
 
         return {
             "name": var_name,
@@ -544,9 +534,9 @@ class TreeSitterTSAnalyzer:
         var_name = self._get_node_text(name_node)
         code_snippet = self._get_node_text(node)
 
-        has_function = self._find_child_by_type(
-            var_declarator, "arrow_function"
-        ) or self._find_child_by_type(var_declarator, "function_expression")
+        has_function = self._find_child_by_type(var_declarator, "arrow_function") or self._find_child_by_type(
+            var_declarator, "function_expression"
+        )
 
         return {
             "name": var_name,
@@ -706,9 +696,7 @@ class TreeSitterTSAnalyzer:
     def _extract_all_relationships(self, node, all_entities: dict) -> None:
         self._traverse_for_relationships(node, all_entities, current_top_level=None)
 
-    def _traverse_for_relationships(
-        self, node, all_entities: dict, current_top_level: str = None
-    ) -> None:
+    def _traverse_for_relationships(self, node, all_entities: dict, current_top_level: str = None) -> None:
         if current_top_level is None or self._is_new_top_level(node):
             new_top_level = self._get_top_level_name(node)
             if new_top_level and new_top_level in self.top_level_nodes:
@@ -761,9 +749,9 @@ class TreeSitterTSAnalyzer:
             "interface_declaration",
             "type_alias_declaration",
         ]:
-            name_node = self._find_child_by_type(
-                node, "type_identifier"
-            ) or self._find_child_by_type(node, "identifier")
+            name_node = self._find_child_by_type(node, "type_identifier") or self._find_child_by_type(
+                node, "identifier"
+            )
             result = self._get_node_text(name_node) if name_node else None
         elif node.type == "enum_declaration":
             name_node = self._find_child_by_type(node, "identifier")
@@ -842,9 +830,7 @@ class TreeSitterTSAnalyzer:
                 if self._is_actually_top_level(entity_data):
                     self._add_relationship(caller_name, callee_name, call_line)
                 else:
-                    logger.debug(
-                        f"Ignoring nested call: {caller_name} -> {callee_name} (local/nested)"
-                    )
+                    logger.debug(f"Ignoring nested call: {caller_name} -> {callee_name} (local/nested)")
             else:
                 logger.debug(f"Ignoring unknown call: {caller_name} -> {callee_name}")
 
@@ -914,9 +900,7 @@ class TreeSitterTSAnalyzer:
         for child in node.children:
             self._find_all_type_identifiers(child, type_identifiers)
 
-    def _extract_type_arguments_relationship(
-        self, node, caller_name: str, all_entities: dict
-    ) -> None:
+    def _extract_type_arguments_relationship(self, node, caller_name: str, all_entities: dict) -> None:
         try:
             for child in node.children:
                 if child.type == "type_identifier":
@@ -1015,9 +999,7 @@ def analyze_typescript_file_treesitter(
         logger.debug(f"Tree-sitter TS analysis for {file_path}")
         analyzer = TreeSitterTSAnalyzer(file_path, content, repo_path)
         analyzer.analyze()
-        logger.debug(
-            f"Found {len(analyzer.nodes)} top-level nodes, {len(analyzer.call_relationships)} calls"
-        )
+        logger.debug(f"Found {len(analyzer.nodes)} top-level nodes, {len(analyzer.call_relationships)} calls")
         return analyzer.nodes, analyzer.call_relationships
     except Exception as e:
         logger.error(f"Error in tree-sitter TS analysis for {file_path}: {e}", exc_info=True)

@@ -5,10 +5,11 @@ This module provides functionality to analyze repository structures and generate
 detailed file tree representations with filtering capabilities.
 """
 
-import os
 import fnmatch
+import os
 from pathlib import Path
 from typing import Dict, List, Optional
+
 from codewiki.src.be.dependency_analyzer.utils.patterns import (
     DEFAULT_IGNORE_PATTERNS,
     DEFAULT_INCLUDE_PATTERNS,
@@ -23,9 +24,7 @@ class RepoAnalyzer:
         respect_gitignore: bool = False,
         repo_path: Optional[str] = None,
     ) -> None:
-        self.include_patterns = (
-            include_patterns if include_patterns is not None else DEFAULT_INCLUDE_PATTERNS
-        )
+        self.include_patterns = include_patterns if include_patterns is not None else DEFAULT_INCLUDE_PATTERNS
         self.exclude_patterns = (
             list(DEFAULT_IGNORE_PATTERNS) + exclude_patterns
             if exclude_patterns is not None
@@ -126,11 +125,7 @@ class RepoAnalyzer:
             return None
 
         result = build_tree(Path(repo_dir), Path(repo_dir))
-        return (
-            result
-            if result is not None
-            else {"type": "directory", "name": "", "path": "", "children": []}
-        )
+        return result if result is not None else {"type": "directory", "name": "", "path": "", "children": []}
 
     def _should_exclude_path(self, path: str, filename: str) -> bool:
         # Check default patterns first
@@ -145,11 +140,7 @@ class RepoAnalyzer:
                 return True
 
         # Check gitignore patterns if available
-        if (
-            self.respect_gitignore
-            and hasattr(self, "gitignore_spec")
-            and self.gitignore_spec is not None
-        ):
+        if self.respect_gitignore and hasattr(self, "gitignore_spec") and self.gitignore_spec is not None:
             if self.gitignore_spec.match_file(path):
                 return True
 

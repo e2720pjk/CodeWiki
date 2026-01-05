@@ -8,23 +8,23 @@ AST parsing for call graph generation.
 
 import logging
 import traceback
-from typing import Dict, List, Optional, Any
 from pathlib import Path
-from codewiki.src.be.dependency_analyzer.utils.security import safe_open_text, assert_safe_path
-from codewiki.src.be.dependency_analyzer.analysis.repo_analyzer import RepoAnalyzer
+from typing import Any, Dict, List, Optional
+
 from codewiki.src.be.dependency_analyzer.analysis.call_graph_analyzer import CallGraphAnalyzer
 from codewiki.src.be.dependency_analyzer.analysis.cloning import (
-    clone_repository,
     cleanup_repository,
+    clone_repository,
     parse_github_url,
 )
+from codewiki.src.be.dependency_analyzer.analysis.repo_analyzer import RepoAnalyzer
 from codewiki.src.be.dependency_analyzer.models.analysis import AnalysisResult
 from codewiki.src.be.dependency_analyzer.models.core import Repository
 from codewiki.src.be.dependency_analyzer.utils.patterns import (
-    find_fallback_entry_points,
     find_fallback_connectivity_files,
+    find_fallback_entry_points,
 )
-
+from codewiki.src.be.dependency_analyzer.utils.security import assert_safe_path, safe_open_text
 
 logger = logging.getLogger(__name__)
 
@@ -47,9 +47,7 @@ class AnalysisService:
         self.config = config
         self._temp_directories = []
 
-    def _validate_file_limits(
-        self, max_files: int, max_entry_points: int, max_connectivity_files: int
-    ):
+    def _validate_file_limits(self, max_files: int, max_entry_points: int, max_connectivity_files: int):
         """Validate file limit parameters."""
         if max_files <= 0:
             raise ValueError("max_files must be positive")
@@ -120,18 +118,12 @@ class AnalysisService:
             logger.debug(f"Found {len(entry_points)} fallback entry points")
 
             # Find fallback connectivity files
-            connectivity_files = find_fallback_connectivity_files(
-                code_files, max_files=max_connectivity_files
-            )
+            connectivity_files = find_fallback_connectivity_files(code_files, max_files=max_connectivity_files)
             logger.debug(f"Found {len(connectivity_files)} fallback connectivity files")
 
             # Analyze files
-            enable_parallel = (
-                self.config.analysis_options.enable_parallel_processing if self.config else True
-            )
-            result = self.call_graph_analyzer.analyze_code_files(
-                code_files, repo_path, enable_parallel
-            )
+            enable_parallel = self.config.analysis_options.enable_parallel_processing if self.config else True
+            result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path, enable_parallel)
 
             return {
                 "nodes": result.get("functions", {}),
@@ -214,9 +206,7 @@ class AnalysisService:
             logger.debug(f"Cleaning up temporary repository directory: {temp_dir}")
             self._cleanup_repository(temp_dir)
 
-            logger.debug(
-                f"Analysis completed: {analysis_result.summary['total_functions']} functions found"
-            )
+            logger.debug(f"Analysis completed: {analysis_result.summary['total_functions']} functions found")
             return analysis_result
 
         except Exception as e:
@@ -262,9 +252,7 @@ class AnalysisService:
 
             self._cleanup_repository(temp_dir)
 
-            logger.debug(
-                f"Structure analysis completed: {result['file_summary']['total_files']} files found"
-            )
+            logger.debug(f"Structure analysis completed: {result['file_summary']['total_files']} files found")
             return result
 
         except Exception as e:
@@ -300,9 +288,7 @@ class AnalysisService:
         repo_analyzer = RepoAnalyzer(
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
-            respect_gitignore=(
-                self.config.analysis_options.respect_gitignore if self.config else respect_gitignore
-            ),
+            respect_gitignore=(self.config.analysis_options.respect_gitignore if self.config else respect_gitignore),
             repo_path=repo_dir,
         )
         return repo_analyzer.analyze_repository_structure(repo_dir)
@@ -348,18 +334,12 @@ class AnalysisService:
         logger.debug("Extracting code files from file tree...")
         code_files = self.call_graph_analyzer.extract_code_files(file_tree)
 
-        logger.debug(
-            f"Found {len(code_files)} total code files. Filtering for supported languages."
-        )
+        logger.debug(f"Found {len(code_files)} total code files. Filtering for supported languages.")
         supported_files = self._filter_supported_languages(code_files)
         logger.debug(f"Analyzing {len(supported_files)} supported files.")
 
-        enable_parallel = (
-            self.config.analysis_options.enable_parallel_processing if self.config else True
-        )
-        result = self.call_graph_analyzer.analyze_code_files(
-            supported_files, repo_dir, enable_parallel
-        )
+        enable_parallel = self.config.analysis_options.enable_parallel_processing if self.config else True
+        result = self.call_graph_analyzer.analyze_code_files(supported_files, repo_dir, enable_parallel)
 
         result["call_graph"]["supported_languages"] = self._get_supported_languages()
         result["call_graph"]["unsupported_files"] = len(code_files) - len(supported_files)
@@ -385,11 +365,7 @@ class AnalysisService:
             "rust",
         }
 
-        return [
-            file_info
-            for file_info in code_files
-            if file_info.get("language") in supported_languages
-        ]
+        return [file_info for file_info in code_files if file_info.get("language") in supported_languages]
 
     def _get_supported_languages(self) -> List[str]:
         """Get list of currently supported languages for analysis."""
@@ -412,9 +388,7 @@ class AnalysisService:
         self.cleanup_all()
 
 
-def analyze_repository(
-    github_url: str, include_patterns=None, exclude_patterns=None
-) -> tuple[AnalysisResult, None]:
+def analyze_repository(github_url: str, include_patterns=None, exclude_patterns=None) -> tuple[AnalysisResult, None]:
     """
     Backward compatibility function.
 
@@ -436,7 +410,5 @@ def analyze_repository_structure_only(
         tuple: (structure_result, None) - None instead of temp_dir since cleanup is handled internally
     """
     service = AnalysisService()
-    result = service.analyze_repository_structure_only(
-        github_url, include_patterns, exclude_patterns
-    )
+    result = service.analyze_repository_structure_only(github_url, include_patterns, exclude_patterns)
     return result, None

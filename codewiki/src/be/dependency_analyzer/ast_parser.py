@@ -1,12 +1,11 @@
-import os
 import json
 import logging
-from typing import Dict, List, Set, Optional
+import os
+from typing import Dict, List, Optional, Set
 
 from codewiki.src.be.dependency_analyzer.analysis.analysis_service import AnalysisService
 from codewiki.src.be.dependency_analyzer.models.core import Node
 from codewiki.src.config import Config
-
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
@@ -40,9 +39,7 @@ class DependencyParser:
         # Use file limits from config if available
         max_files = self.config.analysis_options.max_files if self.config else 100
         max_entry_points = self.config.analysis_options.max_entry_points if self.config else 5
-        max_connectivity_files = (
-            self.config.analysis_options.max_connectivity_files if self.config else 10
-        )
+        max_connectivity_files = self.config.analysis_options.max_connectivity_files if self.config else 10
 
         # Use the public analyze_local_repository method with file limits
         analysis_result = self.analysis_service.analyze_local_repository(
@@ -75,9 +72,7 @@ class DependencyParser:
             node = Node(
                 id=component_id,
                 name=func_dict.get("name", ""),
-                component_type=func_dict.get(
-                    "component_type", func_dict.get("node_type", "function")
-                ),
+                component_type=func_dict.get("component_type", func_dict.get("node_type", "function")),
                 file_path=func_dict.get("file_path", ""),
                 relative_path=func_dict.get("relative_path", ""),
                 source_code=func_dict.get("source_code", func_dict.get("code_snippet", "")),

@@ -2,11 +2,11 @@
 Performance metrics framework for CodeWiki documentation generation.
 """
 
-import time
 import logging
+import time
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 from datetime import datetime
+from typing import Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -73,9 +73,7 @@ class PerformanceMetrics:
 
         # Efficiency = sequential_time / (parallel_time * concurrency_limit)
         theoretical_parallel_time = sequential_time_estimate / self.concurrency_limit
-        self.parallel_efficiency = (
-            theoretical_parallel_time / self.total_time if self.total_time > 0 else 0.0
-        )
+        self.parallel_efficiency = theoretical_parallel_time / self.total_time if self.total_time > 0 else 0.0
 
     def record_module_success(self) -> None:
         """Record a successful module processing."""
@@ -126,9 +124,7 @@ class PerformanceTracker:
         self.metrics: Optional[PerformanceMetrics] = None
         self.api_call_times: List[float] = []
 
-    def start_tracking(
-        self, total_modules: int, leaf_modules: int, concurrency_limit: int = 1
-    ) -> None:
+    def start_tracking(self, total_modules: int, leaf_modules: int, concurrency_limit: int = 1) -> None:
         """Start performance tracking."""
         self.metrics = PerformanceMetrics(
             total_modules=total_modules,
