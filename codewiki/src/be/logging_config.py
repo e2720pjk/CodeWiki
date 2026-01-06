@@ -54,6 +54,7 @@ def get_logger(name: str) -> logging.Logger:
         logger = get_logger(__name__)
         logger.info("This is a log message")
     """
+    ensure_logging_configured()
     return logging.getLogger(name)
 
 
