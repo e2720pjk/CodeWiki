@@ -39,13 +39,16 @@ def initialize_llm_cache(config: Config):
     Args:
         config: Configuration object containing cache_size in analysis_options
     """
-    from codewiki.src.be.caching import get_llm_cache
+    try:
+        from codewiki.src.be.caching import get_llm_cache
 
-    cache_size = config.analysis_options.cache_size
-    llm_cache = get_llm_cache()
-    llm_cache.max_size = cache_size
+        cache_size = config.analysis_options.cache_size
+        llm_cache = get_llm_cache()
+        llm_cache.max_size = cache_size
 
-    logger.info(f"LLM cache initialized with max_size={cache_size}")
+        logger.info(f"LLM cache initialized with max_size={cache_size}")
+    except Exception as e:
+        logger.warning(f"Failed to initialize LLM cache with size {cache_size}: {e}")
 
 
 def create_main_model(config: Config) -> OpenAIModel:

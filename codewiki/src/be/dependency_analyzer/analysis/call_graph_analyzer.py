@@ -21,6 +21,8 @@ from codewiki.src.be.dependency_analyzer.utils.security import safe_open_text
 
 logger = logging.getLogger(__name__)
 
+MAX_WORKERS = 8
+
 
 class CallGraphAnalyzer:
     def __init__(self):
@@ -73,8 +75,10 @@ class CallGraphAnalyzer:
         self.call_relationships = []
 
         # Process languages in parallel
-        max_workers = min(os.cpu_count() or 4, len(files_by_language), 8)
-        logger.debug(f"Using {max_workers} workers for parallel analysis (CPU cores: {os.cpu_count()}, language groups: {len(files_by_language)})")
+        max_workers = min(os.cpu_count() or 4, len(files_by_language), MAX_WORKERS)
+        logger.debug(
+            f"Using {max_workers} workers for parallel analysis (CPU cores: {os.cpu_count()}, language groups: {len(files_by_language)})"
+        )
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit tasks for each language group
             future_to_language = {

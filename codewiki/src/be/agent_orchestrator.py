@@ -5,9 +5,6 @@ import traceback
 from typing import Dict, List, Any
 
 from codewiki.src.be.logging_config import get_logger
-
-logger = get_logger(__name__)
-
 from codewiki.src.be.agent_tools.deps import CodeWikiDeps
 from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
 from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
@@ -28,6 +25,8 @@ from codewiki.src.config import (
 )
 from codewiki.src.utils import file_manager
 from codewiki.src.be.dependency_analyzer.models.core import Node
+
+logger = get_logger(__name__)
 
 
 class AgentOrchestrator:

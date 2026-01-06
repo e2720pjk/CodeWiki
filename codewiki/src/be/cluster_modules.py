@@ -1,18 +1,16 @@
 from typing import List, Dict, Any, Optional
 from collections import defaultdict
-import logging
 import traceback
 import ast
 
 from codewiki.src.be.logging_config import get_logger
-
-logger = get_logger(__name__)
-
 from codewiki.src.be.dependency_analyzer.models.core import Node
 from codewiki.src.be.llm_services import call_llm
 from codewiki.src.be.utils import count_tokens
 from codewiki.src.config import MAX_TOKEN_PER_MODULE, Config
 from codewiki.src.be.prompt_template import format_cluster_prompt
+
+logger = get_logger(__name__)
 
 
 def format_potential_core_components(
