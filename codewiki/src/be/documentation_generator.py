@@ -22,7 +22,7 @@ from codewiki.src.config import (
 )
 from codewiki.src.utils import file_manager
 from codewiki.src.be.agent_orchestrator import AgentOrchestrator
-from codewiki.src.be.performance_metrics import performance_tracker
+from codewiki.src.be.performance_metrics import performance_tracker, PerformanceMetrics
 
 logger = get_logger(__name__)
 
@@ -42,11 +42,14 @@ class DocumentationGenerator:
         self.agent_orchestrator = AgentOrchestrator(config)
 
     def create_documentation_metadata(
-        self, working_dir: str, components: Dict[str, Any], num_leaf_nodes: int
+        self,
+        working_dir: str,
+        components: Dict[str, Any],
+        num_leaf_nodes: int,
+        performance_metrics: Optional[PerformanceMetrics] = None,
     ):
         """Create a metadata file with documentation generation information."""
         from datetime import datetime
-
 
         metadata = {
             "generation_info": {
@@ -472,7 +475,7 @@ class DocumentationGenerator:
                 repo_name=module_name, repo_structure=json.dumps(repo_structure, indent=4)
             )
         )
-        
+
         try:
             parent_docs = call_llm(prompt, self.config)
 
@@ -504,7 +507,7 @@ class DocumentationGenerator:
             file_manager.ensure_directory(working_dir)
             first_module_tree_path = os.path.join(working_dir, FIRST_MODULE_TREE_FILENAME)
             module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
-            
+
             # Check if module tree exists
             if os.path.exists(first_module_tree_path):
                 logger.debug(f"Module tree found at {first_module_tree_path}")
@@ -513,11 +516,11 @@ class DocumentationGenerator:
                 logger.debug(f"Module tree not found at {module_tree_path}, clustering modules")
                 module_tree = cluster_modules(leaf_nodes, components, self.config)
                 file_manager.save_json(module_tree, first_module_tree_path)
-            
+
             file_manager.save_json(module_tree, module_tree_path)
-            
+
             logger.debug(f"Grouped components into {len(module_tree)} modules")
-            
+
             # Generate module documentation using dynamic programming approach
             # This processes leaf modules first, then parent modules
             working_dir = await self.generate_module_documentation(components, leaf_nodes)
@@ -535,9 +538,9 @@ class DocumentationGenerator:
             )
 
             logger.debug(
-                f"Documentation generation completed successfully using dynamic programming!"
+                "Documentation generation completed successfully using dynamic programming!"
             )
-            logger.debug(f"Processing order: leaf modules → parent modules → repository overview")
+            logger.debug("Processing order: leaf modules → parent modules → repository overview")
             logger.debug(f"Documentation saved to: {working_dir}")
 
         except Exception as e:
