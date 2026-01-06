@@ -85,9 +85,9 @@ def generate_report_for_version(version_tag: str, output_dir: Path, repo_path: P
 
         logger.info(f"Running command: {' '.join(cmd)}")
 
-        # Ensure we use the codewiki module from current environment, not worktree
+        # Ensure we use the codewiki module from worktree_dir for version isolation
         env = os.environ.copy()
-        env["PYTHONPATH"] = str(project_root)
+        env["PYTHONPATH"] = str(worktree_dir)
 
         # Make timeout configurable via environment variable
         test_timeout = int(os.getenv("CODEWIKI_TEST_TIMEOUT", "600"))
