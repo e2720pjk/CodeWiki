@@ -1,4 +1,3 @@
-import logging
 import os
 import json
 import asyncio
@@ -7,26 +6,25 @@ from copy import deepcopy
 import traceback
 from tqdm.asyncio import tqdm
 
-# Configure logging and monitoring
-logger = logging.getLogger(__name__)
-
-# Local imports (placed after logging configuration)
-from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder  # noqa: E402
-from codewiki.src.be.llm_services import call_llm  # noqa: E402
-from codewiki.src.be.prompt_template import (  # noqa: E402
+from codewiki.src.be.logging_config import get_logger
+from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder
+from codewiki.src.be.llm_services import call_llm
+from codewiki.src.be.prompt_template import (
     REPO_OVERVIEW_PROMPT,
     MODULE_OVERVIEW_PROMPT,
 )
-from codewiki.src.be.cluster_modules import cluster_modules  # noqa: E402
-from codewiki.src.config import (  # noqa: E402
+from codewiki.src.be.cluster_modules import cluster_modules
+from codewiki.src.config import (
     Config,
     FIRST_MODULE_TREE_FILENAME,
     MODULE_TREE_FILENAME,
     OVERVIEW_FILENAME,
 )
-from codewiki.src.utils import file_manager  # noqa: E402
-from codewiki.src.be.agent_orchestrator import AgentOrchestrator  # noqa: E402
-from codewiki.src.be.performance_metrics import performance_tracker  # noqa: E402
+from codewiki.src.utils import file_manager
+from codewiki.src.be.agent_orchestrator import AgentOrchestrator
+from codewiki.src.be.performance_metrics import performance_tracker, PerformanceMetrics
+
+logger = get_logger(__name__)
 
 
 class DocumentationGenerator:
@@ -35,11 +33,20 @@ class DocumentationGenerator:
     def __init__(self, config: Config, commit_id: Optional[str] = None):
         self.config = config
         self.commit_id = commit_id
+
+        from codewiki.src.be.llm_services import initialize_llm_cache
+
+        initialize_llm_cache(config)
+
         self.graph_builder = DependencyGraphBuilder(config)
         self.agent_orchestrator = AgentOrchestrator(config)
 
     def create_documentation_metadata(
-        self, working_dir: str, components: Dict[str, Any], num_leaf_nodes: int
+        self,
+        working_dir: str,
+        components: Dict[str, Any],
+        num_leaf_nodes: int,
+        performance_metrics: Optional[PerformanceMetrics] = None,
     ):
         """Create a metadata file with documentation generation information."""
         from datetime import datetime
@@ -59,6 +66,9 @@ class DocumentationGenerator:
             },
             "files_generated": ["overview.md", "module_tree.json", "first_module_tree.json"],
         }
+
+        if performance_metrics is not None:
+            metadata["performance"] = performance_metrics.to_dict()
 
         # Add generated markdown files to the metadata
         try:
@@ -515,14 +525,16 @@ class DocumentationGenerator:
             # This processes leaf modules first, then parent modules
             working_dir = await self.generate_module_documentation(components, leaf_nodes)
 
-            # Create documentation metadata
-            self.create_documentation_metadata(working_dir, components, len(leaf_nodes))
-
             # Stop performance tracking and calculate metrics
             metrics = performance_tracker.stop_tracking()
             logger.info(
                 f"Performance metrics: {metrics.total_time:.2f}s total, "
                 f"{metrics.successful_modules}/{metrics.total_modules} modules successful"
+            )
+
+            # Create documentation metadata with performance metrics
+            self.create_documentation_metadata(
+                working_dir, components, len(leaf_nodes), performance_metrics=metrics
             )
 
             logger.debug(

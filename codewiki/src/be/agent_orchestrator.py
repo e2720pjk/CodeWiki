@@ -1,62 +1,32 @@
 from pydantic_ai import Agent
 
-# import logfire
-import logging
 import os
 import traceback
 from typing import Dict, List, Any
 
-# Configure logging and monitoring
-
-logger = logging.getLogger(__name__)
-
-# try:
-#     # Configure logfire with environment variables for Docker compatibility
-#     logfire_token = os.getenv('LOGFIRE_TOKEN')
-#     logfire_project = os.getenv('LOGFIRE_PROJECT_NAME', 'default')
-#     logfire_service = os.getenv('LOGFIRE_SERVICE_NAME', 'default')
-
-#     if logfire_token:
-#         # Configure with explicit token (for Docker)
-#         logfire.configure(
-#             token=logfire_token,
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-#     else:
-#         # Use default configuration (for local development with logfire auth)
-#         logfire.configure(
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-
-#     logfire.instrument_pydantic_ai()
-#     logger.debug(f"Logfire configured successfully for project: {logfire_project}")
-
-# except Exception as e:
-#     logger.warning(f"Failed to configure logfire: {e}")
-
-# Local imports (placed after logging configuration)
-from codewiki.src.be.agent_tools.deps import CodeWikiDeps  # noqa: E402
-from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool  # noqa: E402
-from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool  # noqa: E402
-from codewiki.src.be.agent_tools.generate_sub_module_documentations import (  # noqa: E402
+from codewiki.src.be.logging_config import get_logger
+from codewiki.src.be.agent_tools.deps import CodeWikiDeps
+from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
+from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
+from codewiki.src.be.agent_tools.generate_sub_module_documentations import (
     generate_sub_module_documentation_tool,
 )
-from codewiki.src.be.llm_services import create_fallback_models  # noqa: E402
-from codewiki.src.be.prompt_template import (  # noqa: E402
+from codewiki.src.be.llm_services import create_fallback_models
+from codewiki.src.be.prompt_template import (
     SYSTEM_PROMPT,
     LEAF_SYSTEM_PROMPT,
     format_user_prompt,
 )
-from codewiki.src.be.utils import is_complex_module  # noqa: E402
-from codewiki.src.config import (  # noqa: E402
+from codewiki.src.be.utils import is_complex_module
+from codewiki.src.config import (
     Config,
     MODULE_TREE_FILENAME,
     OVERVIEW_FILENAME,
 )
-from codewiki.src.utils import file_manager  # noqa: E402
-from codewiki.src.be.dependency_analyzer.models.core import Node  # noqa: E402
+from codewiki.src.utils import file_manager
+from codewiki.src.be.dependency_analyzer.models.core import Node
+
+logger = get_logger(__name__)
 
 
 class AgentOrchestrator:

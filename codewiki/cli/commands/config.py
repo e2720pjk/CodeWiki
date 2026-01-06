@@ -57,6 +57,12 @@ def config_group():
     default=None,
     help="Maximum tokens per leaf module (default: 16000, range: 500-100000)",
 )
+@click.option(
+    "--cache-size",
+    type=click.IntRange(min=100, max=10000),
+    default=None,
+    help="LLM cache size - number of cached prompts (default: 1000, range: 100-10000)",
+)
 def config_set(
     api_key: Optional[str],
     base_url: Optional[str],
@@ -67,6 +73,7 @@ def config_set(
     concurrency_limit: Optional[int],
     max_tokens_per_module: Optional[int],
     max_tokens_per_leaf: Optional[int],
+    cache_size: Optional[int],
 ):
     """
     Set configuration values for CodeWiki.
@@ -100,6 +107,7 @@ def config_set(
                 concurrency_limit is not None,
                 max_tokens_per_module is not None,
                 max_tokens_per_leaf is not None,
+                cache_size is not None,
             ]
         ):
             click.echo("No options provided. Use --help for usage information.")
@@ -135,6 +143,9 @@ def config_set(
         if max_tokens_per_leaf is not None:
             validated_data["max_tokens_per_leaf"] = max_tokens_per_leaf
 
+        if cache_size is not None:
+            validated_data["cache_size"] = cache_size
+
         # Create config manager and save
         manager = ConfigManager()
         manager.load()  # Load existing config if present
@@ -149,6 +160,7 @@ def config_set(
             concurrency_limit=validated_data.get("concurrency_limit"),
             max_tokens_per_module=validated_data.get("max_tokens_per_module"),
             max_tokens_per_leaf=validated_data.get("max_tokens_per_leaf"),
+            cache_size=validated_data.get("cache_size"),
         )
 
         # Display success messages
@@ -196,6 +208,9 @@ def config_set(
 
         if max_tokens_per_leaf is not None:
             click.secho(f"✓ Max tokens per leaf: {max_tokens_per_leaf}", fg="green")
+
+        if cache_size is not None:
+            click.secho(f"✓ Cache size: {cache_size}", fg="green")
 
         click.echo("\n" + click.style("Configuration updated successfully.", fg="green", bold=True))
 
