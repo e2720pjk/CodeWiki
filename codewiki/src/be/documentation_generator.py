@@ -1,4 +1,3 @@
-import logging
 import os
 import json
 import asyncio
@@ -8,9 +7,6 @@ import traceback
 from tqdm.asyncio import tqdm
 
 from codewiki.src.be.logging_config import get_logger
-
-logger = get_logger(__name__)
-
 from codewiki.src.be.dependency_analyzer import DependencyGraphBuilder
 from codewiki.src.be.llm_services import call_llm
 from codewiki.src.be.prompt_template import (
@@ -28,6 +24,8 @@ from codewiki.src.utils import file_manager
 from codewiki.src.be.agent_orchestrator import AgentOrchestrator
 from codewiki.src.be.performance_metrics import performance_tracker
 
+logger = get_logger(__name__)
+
 
 class DocumentationGenerator:
     """Main documentation generation orchestrator."""
@@ -37,6 +35,7 @@ class DocumentationGenerator:
         self.commit_id = commit_id
 
         from codewiki.src.be.llm_services import initialize_llm_cache
+
         initialize_llm_cache(config)
 
         self.graph_builder = DependencyGraphBuilder(config)

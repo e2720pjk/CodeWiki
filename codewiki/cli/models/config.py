@@ -125,6 +125,31 @@ class Configuration:
         validate_model_name(self.cluster_model)
         validate_model_name(self.fallback_model)
 
+        if not (1 <= self.max_files <= 5000):
+            raise ValueError(f"max_files must be between 1 and 5000, got {self.max_files}")
+        if not (1 <= self.max_entry_points <= self.max_files):
+            raise ValueError(
+                f"max_entry_points must be between 1 and max_files ({self.max_files}), got {self.max_entry_points}"
+            )
+        if not (1 <= self.max_connectivity_files <= self.max_files):
+            raise ValueError(
+                f"max_connectivity_files must be between 1 and max_files ({self.max_files}), got {self.max_connectivity_files}"
+            )
+        if not (1000 <= self.max_tokens_per_module <= 200000):
+            raise ValueError(
+                f"max_tokens_per_module must be between 1000 and 200000, got {self.max_tokens_per_module}"
+            )
+        if not (500 <= self.max_tokens_per_leaf <= 100000):
+            raise ValueError(
+                f"max_tokens_per_leaf must be between 500 and 100000, got {self.max_tokens_per_leaf}"
+            )
+        if not (1 <= self.concurrency_limit <= 10):
+            raise ValueError(
+                f"concurrency_limit must be between 1 and 10, got {self.concurrency_limit}"
+            )
+        if not (100 <= self.cache_size <= 10000):
+            raise ValueError(f"cache_size must be between 100 and 10000, got {self.cache_size}")
+
     def to_dict(self) -> dict:
         """Convert to dictionary."""
         return asdict(self)
