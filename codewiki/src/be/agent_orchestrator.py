@@ -5,6 +5,7 @@ import traceback
 from typing import Dict, List, Any
 
 from codewiki.src.be.logging_config import get_logger
+from codewiki.src.be.performance_metrics import performance_tracker
 from codewiki.src.be.agent_tools.deps import CodeWikiDeps
 from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
 from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
@@ -109,7 +110,7 @@ class AgentOrchestrator:
 
         # Run agent
         try:
-            await agent.run(
+            result = await agent.run(
                 format_user_prompt(
                     module_name=module_name,
                     core_component_ids=core_component_ids,
@@ -118,6 +119,25 @@ class AgentOrchestrator:
                 ),
                 deps=deps,
             )
+
+            # Record token usage from agent run
+            if result is not None:
+                try:
+                    usage = result.usage()
+                    total_tokens = usage.input_tokens + usage.output_tokens
+                    performance_tracker.record_token_usage(
+                        prompt_tokens=usage.input_tokens,
+                        completion_tokens=usage.output_tokens,
+                        total_tokens=total_tokens,
+                        api_time=0.0,
+                    )
+                    logger.debug(
+                        f"Module {module_name} token usage: "
+                        f"input={usage.input_tokens}, output={usage.output_tokens}, "
+                        f"total={total_tokens}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to record token usage for {module_name}: {e}")
 
             # Save updated module tree
             file_manager.save_json(deps.module_tree, module_tree_path)

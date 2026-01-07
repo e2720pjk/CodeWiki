@@ -8,6 +8,7 @@ from codewiki.src.be.prompt_template import SYSTEM_PROMPT, LEAF_SYSTEM_PROMPT, f
 from codewiki.src.be.utils import is_complex_module, count_tokens
 from codewiki.src.be.cluster_modules import format_potential_core_components
 from codewiki.src.config import MAX_TOKEN_PER_LEAF_MODULE
+from codewiki.src.be.performance_metrics import performance_tracker
 
 import logging
 
@@ -77,10 +78,10 @@ async def generate_sub_module_documentation(
         deps.current_module_name = sub_module_name
         deps.path_to_current_module.append(sub_module_name)
         deps.current_depth += 1
-        # log the current module tree
+        # log current module tree
         # print(f"Current module tree: {json.dumps(deps.module_tree, indent=4)}")
 
-        await sub_agent.run(
+        result = await sub_agent.run(
             format_user_prompt(
                 module_name=deps.current_module_name,
                 core_component_ids=core_component_ids,
@@ -89,6 +90,25 @@ async def generate_sub_module_documentation(
             ),
             deps=ctx.deps,
         )
+
+        # Record token usage from sub-agent run
+        if result is not None:
+            try:
+                usage = result.usage()
+                total_tokens = usage.input_tokens + usage.output_tokens
+                performance_tracker.record_token_usage(
+                    prompt_tokens=usage.input_tokens,
+                    completion_tokens=usage.output_tokens,
+                    total_tokens=total_tokens,
+                    api_time=0.0,
+                )
+                logger.debug(
+                    f"Sub-module {sub_module_name} token usage: "
+                    f"input={usage.input_tokens}, output={usage.output_tokens}, "
+                    f"total={total_tokens}"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to record token usage for {sub_module_name}: {e}")
 
         # remove the sub-module name from the path to current module and the module tree
         deps.path_to_current_module.pop()
