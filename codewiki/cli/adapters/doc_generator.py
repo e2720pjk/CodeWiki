@@ -243,6 +243,13 @@ class CLIDocumentationGenerator:
             # Create metadata
             doc_generator.create_documentation_metadata(working_dir, components, len(leaf_nodes))
 
+            # Collect token statistics
+            from codewiki.src.be.performance_metrics import performance_tracker
+            self.job.statistics.total_tokens_used = performance_tracker.get_total_tokens()
+            metrics = performance_tracker.get_current_metrics()
+            if metrics:
+                self.job.statistics.avg_token_rate = metrics.get_current_token_rate()
+
             # Collect generated files
             for file_path in os.listdir(working_dir):
                 if file_path.endswith(".md") or file_path.endswith(".json"):

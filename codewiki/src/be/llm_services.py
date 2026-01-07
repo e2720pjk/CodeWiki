@@ -284,6 +284,29 @@ async def call_llm_async_with_retry(
             # Record successful API call
             get_performance_tracker().record_api_call(api_time)
 
+            # Extract and record token usage
+            if hasattr(response, 'usage') and response.usage is not None:
+                usage = response.usage
+                prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+                completion_tokens = getattr(usage, 'completion_tokens', 0)
+                total_tokens = getattr(usage, 'total_tokens', 0)
+
+                get_performance_tracker().record_token_usage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens,
+                    total_tokens=total_tokens,
+                    api_time=api_time
+                )
+
+                logger.debug(
+                    f"Token usage: prompt={prompt_tokens}, "
+                    f"completion={completion_tokens}, "
+                    f"total={total_tokens}, "
+                    f"rate={completion_tokens / api_time:.1f} t/s"
+                )
+            else:
+                logger.warning(f"API response missing usage information for model {model}")
+
             # Cache successful response
             if config.analysis_options.enable_llm_cache:
                 from codewiki.src.be.caching import cache_llm_response

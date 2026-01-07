@@ -199,7 +199,19 @@ class DocumentationGenerator:
                     performance_tracker.record_module_processing(False, 0)
                     return module_key, False
 
-        # Process all modules in parallel with progress tracking
+        def update_progress_postfix(pbar):
+            """Update progress bar with current token information."""
+            total_tokens = performance_tracker.get_total_tokens()
+            token_rate = performance_tracker.get_current_token_rate()
+
+            formatted_tokens = performance_tracker.format_tokens(total_tokens)
+
+            postfix_str = f"{formatted_tokens} tokens"
+            if token_rate > 0:
+                postfix_str += f", {token_rate:.0f} t/s"
+
+            pbar.set_postfix_str(postfix_str)
+
         with tqdm(total=len(leaf_modules), desc="Processing leaf modules") as pbar:
 
             async def process_with_progress(
@@ -207,6 +219,7 @@ class DocumentationGenerator:
             ) -> Tuple[str, bool]:
                 result = await process_with_semaphore(module_path, module_name)
                 pbar.update(1)
+                update_progress_postfix(pbar)
                 return result
 
             results = await asyncio.gather(

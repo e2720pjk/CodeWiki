@@ -53,6 +53,7 @@ class JobStatistics:
     leaf_nodes: int = 0
     max_depth: int = 0
     total_tokens_used: int = 0
+    avg_token_rate: float = 0.0
 
 
 @dataclass

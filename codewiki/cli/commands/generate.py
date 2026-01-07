@@ -278,6 +278,7 @@ def generate_command(
                 "total_files_analyzed": job.statistics.total_files_analyzed,
                 "generation_time": generation_time,
                 "total_tokens_used": job.statistics.total_tokens_used,
+                "avg_token_rate": job.statistics.avg_token_rate,
             },
         )
 
