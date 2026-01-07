@@ -10,7 +10,9 @@ import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
-from typing import List, Optional, Tuple, Literal
+from typing import List, Optional, Tuple, Literal, Any
+from pydantic import BeforeValidator
+from typing import Annotated
 import io
 
 import logging
@@ -381,6 +383,18 @@ class WindowExpander:
         assert new_stop >= stop, (new_stop, stop)
         assert new_stop - stop <= max_added_lines, (new_stop, stop)
         return new_start, new_stop
+
+
+def parse_view_range(v: Any) -> Any:
+    if isinstance(v, str):
+        try:
+            return json.loads(v)
+        except json.JSONDecodeError:
+            return v
+    return v
+
+
+ViewRange = Annotated[Optional[List[int]], BeforeValidator(parse_view_range)]
 
 
 class EditTool:
@@ -788,7 +802,7 @@ async def str_replace_editor(
     path: str,
     working_dir: Literal["repo", "docs"] = "docs",
     file_text: Optional[str] = None,
-    view_range: Optional[List[int]] = None,
+    view_range: ViewRange = None,
     old_str: Optional[str] = None,
     new_str: Optional[str] = None,
     insert_line: Optional[int] = None,

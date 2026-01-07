@@ -230,7 +230,7 @@ class DocumentationGenerator:
 
         # Check results and handle failures with module identification
         failed_modules = []
-        for task_info_item, result in zip(task_info, results):
+        for task_info_item, result in zip(task_info, results, strict=True):
             module_path = task_info_item[0]
             module_key = "/".join(module_path)
 
@@ -239,7 +239,7 @@ class DocumentationGenerator:
                 failed_modules.append(module_key)
                 continue
 
-            result_module_key, success = result
+            _, success = result
             if not success:
                 failed_modules.append(module_key)
                 logger.warning(f"Module processing failed: {module_key}")

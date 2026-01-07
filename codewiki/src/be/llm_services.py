@@ -302,11 +302,12 @@ async def call_llm_async_with_retry(
                     api_time=api_time,
                 )
 
+                rate = completion_tokens / api_time if api_time > 0 else float("inf")
                 logger.debug(
                     f"Token usage: prompt={prompt_tokens}, "
                     f"completion={completion_tokens}, "
                     f"total={total_tokens}, "
-                    f"rate={completion_tokens / api_time:.1f} t/s"
+                    f"rate={rate:.1f} t/s"
                 )
             else:
                 logger.warning(f"API response missing usage information for model {model}")
