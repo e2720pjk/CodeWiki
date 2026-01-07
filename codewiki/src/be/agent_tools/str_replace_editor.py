@@ -827,23 +827,32 @@ async def str_replace_editor(
     if command != "view" and working_dir == "repo":
         return "The `view` command is the only allowed command when `working_dir` is `repo`."
 
-    tool(
-        command=command,
-        path=absolute_path,
-        file_text=file_text,
-        view_range=view_range,
-        old_str=old_str,
-        new_str=new_str,
-        insert_line=insert_line,
-    )
+    try:
+        tool(
+            command=command,
+            path=absolute_path,
+            file_text=file_text,
+            view_range=view_range,
+            old_str=old_str,
+            new_str=new_str,
+            insert_line=insert_line,
+        )
 
-    result = "\n".join(tool.logs)
+        result = "\n".join(tool.logs)
 
-    if command != "view" and path.endswith(".md"):
-        mermaid_validation = await validate_mermaid_diagrams(absolute_path, path)
-        result = result + "\n---------- Mermaid validation ----------\n" + mermaid_validation
+        if command != "view" and path.endswith(".md"):
+            mermaid_validation = await validate_mermaid_diagrams(absolute_path, path)
+            result = result + "\n---------- Mermaid validation ----------\n" + mermaid_validation
 
-    return result
+        return result
+    except FileNotFoundError:
+        return f"Error: File not found: {path}"
+    except PermissionError:
+        return f"Error: Permission denied: {path}"
+    except ValueError as e:
+        return f"Error: Invalid parameters for {command}: {str(e)}"
+    except Exception as e:
+        return f"Error: Failed to {command} {path}: {str(e)}"
 
 
 str_replace_editor_tool = Tool(

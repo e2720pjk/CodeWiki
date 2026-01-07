@@ -82,7 +82,7 @@ class DocumentationGenerator:
             parent_path = []
         processing_order = []
 
-        def collect_modules(tree: Dict[str, Any], path: List[str]):
+        def collect_modules(tree: Dict[str, Any], path: List[str]) -> None:
             for module_name, module_info in tree.items():
                 current_path = path + [module_name]
 
@@ -202,7 +202,9 @@ class DocumentationGenerator:
         # Process all modules in parallel with progress tracking
         with tqdm(total=len(leaf_modules), desc="Processing leaf modules") as pbar:
 
-            async def process_with_progress(module_path: List[str], module_name: str):
+            async def process_with_progress(
+                module_path: List[str], module_name: str
+            ) -> Tuple[str, bool]:
                 result = await process_with_semaphore(module_path, module_name)
                 pbar.update(1)
                 return result
@@ -422,6 +424,22 @@ class DocumentationGenerator:
             repo_overview_path = os.path.join(working_dir, f"{repo_name}.md")
             if os.path.exists(repo_overview_path):
                 os.rename(repo_overview_path, os.path.join(working_dir, OVERVIEW_FILENAME))
+
+        # Stop performance tracking and calculate metrics
+        metrics = performance_tracker.stop_tracking()
+        logger.info(f"Documentation generation completed in {metrics.total_time:.2f}s")
+        logger.info(f"API calls: {metrics.api_calls}, Average time: {metrics.avg_api_time:.2f}s")
+        logger.info(f"Success rate: {metrics.success_rate:.1f}%")
+
+        # Add performance metrics to metadata
+        try:
+            self.create_documentation_metadata(working_dir, components, leaf_count)
+            metadata_path = os.path.join(working_dir, "metadata.json")
+            metadata = file_manager.load_json(metadata_path)
+            metadata["performance_metrics"] = metrics.to_dict()
+            file_manager.save_json(metadata, metadata_path)
+        except Exception as e:
+            logger.warning(f"Failed to save performance metrics to metadata: {e}")
 
         return working_dir
 

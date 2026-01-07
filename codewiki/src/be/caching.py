@@ -8,6 +8,7 @@ Provides LRU caching with configurable size limits.
 import hashlib
 import logging
 import threading
+from collections import OrderedDict
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class LLMPromptCache:
     Simple LLM response cache for identical prompts.
 
     Implements LRU (Least Recently Used) caching strategy
-    with configurable size limits.
+    with configurable size limits using OrderedDict for O(1) operations.
     """
 
     def __init__(self, max_size: int = 1000):
@@ -29,8 +30,7 @@ class LLMPromptCache:
             max_size: Maximum number of cached responses
         """
         self.max_size = max_size
-        self._cache: Dict[str, str] = {}
-        self._access_order: list[str] = []
+        self._cache = OrderedDict()
         self._lock = threading.RLock()
 
     def _generate_cache_key(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> str:
@@ -69,9 +69,10 @@ class LLMPromptCache:
 
         with self._lock:
             if key in self._cache:
-                # Move to end (LRU update)
-                self._update_access_order(key)
-                logger.debug(f"Cache hit for prompt: {key[:16]}...")
+                # Move to end (LRU update) - O(1) operation with OrderedDict
+                self._cache.move_to_end(key)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Cache hit for prompt: {key[:16]}...")
                 return self._cache[key]
 
         return None
@@ -89,29 +90,24 @@ class LLMPromptCache:
         key = self._generate_cache_key(prompt, model, max_tokens)
 
         with self._lock:
-            # Remove oldest if at capacity
+            # Remove oldest if at capacity - O(1) operation with OrderedDict
             if len(self._cache) >= self.max_size and key not in self._cache:
-                oldest_key = self._access_order.pop(0)
-                del self._cache[oldest_key]
-                logger.debug(f"Evicted cache entry: {oldest_key[:16]}...")
+                oldest_key, _ = self._cache.popitem(last=False)
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(f"Evicted cache entry: {oldest_key[:16]}...")
 
             self._cache[key] = response
-            self._update_access_order(key)
+            self._cache.move_to_end(key)
 
-        logger.debug(f"Cached response for prompt: {key[:16]}...")
-
-    def _update_access_order(self, key: str) -> None:
-        """Update access order for LRU."""
-        if key in self._access_order:
-            self._access_order.remove(key)
-        self._access_order.append(key)
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug(f"Cached response for prompt: {key[:16]}...")
 
     def clear(self) -> None:
         """Clear all cached entries."""
         with self._lock:
             self._cache.clear()
-            self._access_order.clear()
-        logger.debug("Cache cleared")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("Cache cleared")
 
     def get_stats(self) -> Dict[str, Any]:
         """

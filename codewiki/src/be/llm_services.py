@@ -106,7 +106,7 @@ class ClientManager:
         """
         Get or create async OpenAI client with connection pooling.
 
-        Returns a cached AsyncOpenAI client for the given configuration.
+        Returns a cached AsyncOpenAI client for given configuration.
         If no client exists for this config, creates a new one with optimized
         connection pooling settings.
 
@@ -132,6 +132,55 @@ class ClientManager:
                     ),
                 )
             return self._clients[client_key]
+
+    async def cleanup_client(self, config: Config) -> bool:
+        """
+        Close and remove a specific client.
+
+        Args:
+            config: Configuration containing llm_base_url and llm_api_key
+
+        Returns:
+            True if client was found and removed, False otherwise
+        """
+        client_key = f"{config.llm_base_url}_{config.llm_api_key[:8]}"
+
+        async with self._lock:
+            if client_key in self._clients:
+                await self._clients[client_key].close()
+                del self._clients[client_key]
+                return True
+            return False
+
+    async def cleanup(self) -> None:
+        """
+        Close all HTTP clients and clear cache.
+
+        This should be called when shutting down the application to prevent
+        resource leaks. All async OpenAI clients and their underlying httpx
+        AsyncClient instances will be properly closed.
+        """
+        async with self._lock:
+            for client in self._clients.values():
+                await client.close()
+            self._clients.clear()
+
+    async def cleanup_inactive(self, inactive_seconds: int = 3600) -> int:
+        """
+        Remove clients that haven't been used recently.
+
+        Note: Current implementation doesn't track last access time,
+        so this is a placeholder for future enhancement.
+
+        Args:
+            inactive_seconds: Minimum seconds of inactivity before cleanup
+
+        Returns:
+            Number of clients removed (always 0 in current implementation)
+        """
+        # TODO: Track last access time and implement actual cleanup logic
+        # For now, return 0 as we don't track access times
+        return 0
 
 
 # Global client manager
@@ -163,7 +212,7 @@ def call_llm(
         temperature=temperature,
         max_tokens=32768,
     )
-    return response.choices[0].message.content
+    return response.choices[0].message.content or ""
 
 
 async def call_llm_async_with_retry(
@@ -230,7 +279,7 @@ async def call_llm_async_with_retry(
                 max_tokens=max_tokens,
             )
             api_time = asyncio.get_event_loop().time() - start_time
-            response_content = response.choices[0].message.content
+            response_content = response.choices[0].message.content or ""
 
             # Record successful API call
             get_performance_tracker().record_api_call(api_time)

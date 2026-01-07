@@ -157,29 +157,110 @@ class Configuration:
     @classmethod
     def from_dict(cls, data: dict) -> "Configuration":
         """
-        Create Configuration from dictionary.
+        Create Configuration from dictionary with type validation.
 
         Args:
             data: Configuration dictionary
 
         Returns:
             Configuration instance
+
+        Raises:
+            ValueError: If any field has an invalid type
         """
-        return cls(
-            base_url=data.get("base_url", ""),
-            main_model=data.get("main_model", ""),
-            cluster_model=data.get("cluster_model", ""),
-            fallback_model=data.get("fallback_model", "glm-4p5"),
-            default_output=data.get("default_output", "docs"),
-            max_files=data.get("max_files", 100),
-            max_entry_points=data.get("max_entry_points", 5),
-            max_connectivity_files=data.get("max_connectivity_files", 10),
-            max_tokens_per_module=data.get("max_tokens_per_module", 36369),
-            max_tokens_per_leaf=data.get("max_tokens_per_leaf", 16000),
-            enable_parallel_processing=data.get("enable_parallel_processing", True),
-            concurrency_limit=data.get("concurrency_limit", 5),
-            cache_size=data.get("cache_size", 1000),
+
+        def _get_typed_value(key: str, default_value, expected_type: type, field_name: str):
+            """
+            Get value from dictionary with strict type checking.
+
+            Args:
+                key: Dictionary key
+                default_value: Default value if key is missing
+                expected_type: Expected type for value
+                field_name: Name of the field for error messages
+
+            Returns:
+                Typed value from dictionary or default
+
+            Raises:
+                ValueError: If value has incorrect type
+            """
+            value = data.get(key, default_value)
+
+            # Skip validation if value is None or same object as default
+            if value is None or value is default_value:
+                return value
+
+            # Use strict type comparison to prevent bool from passing as int
+            # bool is a subclass of int, so isinstance(True, int) returns True
+            actual_type = type(value)
+
+            if expected_type is bool:
+                # For bool fields, accept bool only
+                if not isinstance(value, bool):
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
+                        f"got {actual_type.__name__}"
+                    )
+            else:
+                # For non-bool fields, reject bool values and require exact type match
+                if actual_type is bool:
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
+                        f"got {actual_type.__name__} (boolean values not allowed for numeric fields)"
+                    )
+                if actual_type is not expected_type:
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
+                        f"got {actual_type.__name__}"
+                    )
+
+            return value
+
+        # Extract and validate each field with proper type checking
+        base_url = _get_typed_value("base_url", "", str, "base_url")
+        main_model = _get_typed_value("main_model", "", str, "main_model")
+        cluster_model = _get_typed_value("cluster_model", "", str, "cluster_model")
+        fallback_model = _get_typed_value("fallback_model", "glm-4p5", str, "fallback_model")
+        default_output = _get_typed_value("default_output", "docs", str, "default_output")
+        max_files = _get_typed_value("max_files", 100, int, "max_files")
+        max_entry_points = _get_typed_value("max_entry_points", 5, int, "max_entry_points")
+        max_connectivity_files = _get_typed_value(
+            "max_connectivity_files", 10, int, "max_connectivity_files"
         )
+        max_tokens_per_module = _get_typed_value(
+            "max_tokens_per_module", 36369, int, "max_tokens_per_module"
+        )
+        max_tokens_per_leaf = _get_typed_value(
+            "max_tokens_per_leaf", 16000, int, "max_tokens_per_leaf"
+        )
+        enable_parallel_processing = _get_typed_value(
+            "enable_parallel_processing", True, bool, "enable_parallel_processing"
+        )
+        concurrency_limit = _get_typed_value("concurrency_limit", 5, int, "concurrency_limit")
+        cache_size = _get_typed_value("cache_size", 1000, int, "cache_size")
+
+        # Create configuration instance
+        config = cls(
+            base_url=base_url,
+            main_model=main_model,
+            cluster_model=cluster_model,
+            fallback_model=fallback_model,
+            default_output=default_output,
+            max_files=max_files,
+            max_entry_points=max_entry_points,
+            max_connectivity_files=max_connectivity_files,
+            max_tokens_per_module=max_tokens_per_module,
+            max_tokens_per_leaf=max_tokens_per_leaf,
+            enable_parallel_processing=enable_parallel_processing,
+            concurrency_limit=concurrency_limit,
+            cache_size=cache_size,
+        )
+
+        # Validate configuration immediately after creation
+        config.validate()
+
+        return config
 
     def is_complete(self) -> bool:
         """Check if all required fields are set."""
