@@ -5,10 +5,9 @@ Simple LLM response cache to avoid redundant API calls for identical prompts.
 Provides LRU caching with configurable size limits.
 """
 
+import asyncio
 import hashlib
 import logging
-import threading
-from collections import OrderedDict
 from typing import Optional, Dict, Any
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ class LLMPromptCache:
     Simple LLM response cache for identical prompts.
 
     Implements LRU (Least Recently Used) caching strategy
-    with configurable size limits using OrderedDict for O(1) operations.
+    with configurable size limits.
     """
 
     def __init__(self, max_size: int = 1000):
@@ -30,8 +29,9 @@ class LLMPromptCache:
             max_size: Maximum number of cached responses
         """
         self.max_size = max_size
-        self._cache = OrderedDict()
-        self._lock = threading.RLock()
+        self._cache: Dict[str, str] = {}
+        self._access_order: list[str] = []
+        self._lock = asyncio.Lock()
 
     def _generate_cache_key(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> str:
         """
@@ -53,7 +53,7 @@ class LLMPromptCache:
         content = "|".join(content_parts)
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def get(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Optional[str]:
+    async def get(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Optional[str]:
         """
         Get cached response if available.
 
@@ -67,17 +67,18 @@ class LLMPromptCache:
         """
         key = self._generate_cache_key(prompt, model, max_tokens)
 
-        with self._lock:
+        async with self._lock:
             if key in self._cache:
-                # Move to end (LRU update) - O(1) operation with OrderedDict
-                self._cache.move_to_end(key)
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"Cache hit for prompt: {key[:16]}...")
+                # Move to end (LRU update)
+                self._update_access_order(key)
+                logger.debug(f"Cache hit for prompt: {key[:16]}...")
                 return self._cache[key]
 
         return None
 
-    def set(self, prompt: str, model: str, response: str, max_tokens: Optional[int] = None) -> None:
+    async def set(
+        self, prompt: str, model: str, response: str, max_tokens: Optional[int] = None
+    ) -> None:
         """
         Cache response for prompt.
 
@@ -89,34 +90,39 @@ class LLMPromptCache:
         """
         key = self._generate_cache_key(prompt, model, max_tokens)
 
-        with self._lock:
-            # Remove oldest if at capacity - O(1) operation with OrderedDict
+        async with self._lock:
+            # Remove oldest if at capacity
             if len(self._cache) >= self.max_size and key not in self._cache:
-                oldest_key, _ = self._cache.popitem(last=False)
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(f"Evicted cache entry: {oldest_key[:16]}...")
+                oldest_key = self._access_order.pop(0)
+                del self._cache[oldest_key]
+                logger.debug(f"Evicted cache entry: {oldest_key[:16]}...")
 
             self._cache[key] = response
-            self._cache.move_to_end(key)
+            self._update_access_order(key)
 
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug(f"Cached response for prompt: {key[:16]}...")
+        logger.debug(f"Cached response for prompt: {key[:16]}...")
 
-    def clear(self) -> None:
+    def _update_access_order(self, key: str) -> None:
+        """Update access order for LRU."""
+        if key in self._access_order:
+            self._access_order.remove(key)
+        self._access_order.append(key)
+
+    async def clear(self) -> None:
         """Clear all cached entries."""
-        with self._lock:
+        async with self._lock:
             self._cache.clear()
-        if logger.isEnabledFor(logging.DEBUG):
-            logger.debug("Cache cleared")
+            self._access_order.clear()
+        logger.debug("Cache cleared")
 
-    def get_stats(self) -> Dict[str, Any]:
+    async def get_stats(self) -> Dict[str, Any]:
         """
         Get cache statistics.
 
         Returns:
             Dictionary with cache statistics
         """
-        with self._lock:
+        async with self._lock:
             return {
                 "size": len(self._cache),
                 "max_size": self.max_size,
@@ -139,7 +145,7 @@ def get_llm_cache() -> LLMPromptCache:
     return llm_cache
 
 
-def cache_llm_response(
+async def cache_llm_response(
     prompt: str, model: str, response: str, max_tokens: Optional[int] = None
 ) -> None:
     """
@@ -151,10 +157,10 @@ def cache_llm_response(
         response: The response to cache
         max_tokens: Maximum tokens for the request
     """
-    llm_cache.set(prompt, model, response, max_tokens)
+    await llm_cache.set(prompt, model, response, max_tokens)
 
 
-def get_cached_llm_response(
+async def get_cached_llm_response(
     prompt: str, model: str, max_tokens: Optional[int] = None
 ) -> Optional[str]:
     """
@@ -168,9 +174,9 @@ def get_cached_llm_response(
     Returns:
         Cached response or None if not found
     """
-    return llm_cache.get(prompt, model, max_tokens)
+    return await llm_cache.get(prompt, model, max_tokens)
 
 
-def clear_llm_cache() -> None:
+async def clear_llm_cache() -> None:
     """Clear the global LLM cache."""
-    llm_cache.clear()
+    await llm_cache.clear()

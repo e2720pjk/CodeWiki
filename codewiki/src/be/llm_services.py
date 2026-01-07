@@ -15,6 +15,10 @@ from openai import OpenAI, AsyncOpenAI
 from codewiki.src.config import Config
 
 
+# Configuration constants
+DEFAULT_MAX_TOKENS = 32768
+
+
 # Import will be done lazily to avoid circular imports
 def get_performance_tracker():
     from codewiki.src.be.performance_metrics import performance_tracker
@@ -57,7 +61,7 @@ def create_main_model(config: Config) -> OpenAIModel:
     return OpenAIModel(
         model_name=config.main_model,
         provider=OpenAIProvider(base_url=config.llm_base_url, api_key=config.llm_api_key),
-        settings=OpenAIModelSettings(temperature=0.0, max_tokens=32768),
+        settings=OpenAIModelSettings(temperature=0.0, max_tokens=DEFAULT_MAX_TOKENS),
     )
 
 
@@ -66,7 +70,7 @@ def create_fallback_model(config: Config) -> OpenAIModel:
     return OpenAIModel(
         model_name=config.fallback_model,
         provider=OpenAIProvider(base_url=config.llm_base_url, api_key=config.llm_api_key),
-        settings=OpenAIModelSettings(temperature=0.0, max_tokens=32768),
+        settings=OpenAIModelSettings(temperature=0.0, max_tokens=DEFAULT_MAX_TOKENS),
     )
 
 
@@ -210,7 +214,7 @@ def call_llm(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
-        max_tokens=32768,
+        max_tokens=DEFAULT_MAX_TOKENS,
     )
     return response.choices[0].message.content or ""
 
@@ -257,11 +261,11 @@ async def call_llm_async_with_retry(
         model = config.main_model
 
     if max_tokens is None:
-        max_tokens = getattr(config, "max_tokens_per_module", 32768)
+        max_tokens = getattr(config, "max_tokens_per_module", DEFAULT_MAX_TOKENS)
 
     # Check cache first
     if config.analysis_options.enable_llm_cache:
-        cached_response = get_llm_cache().get(prompt, model, max_tokens)
+        cached_response = await get_llm_cache().get(prompt, model, max_tokens)
         if cached_response is not None:
             logger.debug(f"Cache hit for LLM prompt: {model}")
             return cached_response
@@ -311,7 +315,7 @@ async def call_llm_async_with_retry(
             if config.analysis_options.enable_llm_cache:
                 from codewiki.src.be.caching import cache_llm_response
 
-                cache_llm_response(prompt, model, response_content, max_tokens)
+                await cache_llm_response(prompt, model, response_content, max_tokens)
 
             return response_content
 

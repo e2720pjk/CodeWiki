@@ -222,20 +222,27 @@ class DocumentationGenerator:
                 update_progress_postfix(pbar)
                 return result
 
+            # Track module info with tasks
+            task_info = [(mp, mn, process_with_progress(mp, mn)) for mp, mn in leaf_modules]
             results = await asyncio.gather(
-                *[process_with_progress(mp, mn) for mp, mn in leaf_modules], return_exceptions=True
+                *[task[2] for task in task_info], return_exceptions=True
             )
 
-        # Check results and handle failures
+        # Check results and handle failures with module identification
         failed_modules = []
-        for result in results:
+        for i, result in enumerate(results):
+            module_path = task_info[i][0]
+            module_key = "/".join(module_path)
+
             if isinstance(result, Exception):
-                logger.error(f"Parallel processing error: {result}")
+                logger.error(f"Module {module_key} failed with error: {result}")
+                failed_modules.append(module_key)
                 continue
 
-            module_key, success = result
+            returned_module_key, success = result
             if not success:
-                failed_modules.append(module_key)
+                failed_modules.append(returned_module_key)
+                logger.warning(f"Module processing failed: {returned_module_key}")
 
         # Retry failed modules sequentially
         if failed_modules:
