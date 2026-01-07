@@ -245,6 +245,7 @@ class CLIDocumentationGenerator:
 
             # Collect token statistics
             from codewiki.src.be.performance_metrics import performance_tracker
+
             self.job.statistics.total_tokens_used = performance_tracker.get_total_tokens()
             metrics = performance_tracker.get_current_metrics()
             if metrics:

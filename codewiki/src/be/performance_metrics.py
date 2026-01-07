@@ -99,11 +99,7 @@ class PerformanceMetrics:
         self.total_api_time += api_time
 
     def record_token_usage(
-        self,
-        prompt_tokens: int,
-        completion_tokens: int,
-        total_tokens: int,
-        api_time: float
+        self, prompt_tokens: int, completion_tokens: int, total_tokens: int, api_time: float
     ) -> None:
         """
         Record token usage from an API call.
@@ -169,9 +165,13 @@ class PerformanceMetrics:
                 "total_prompt_tokens": self.total_prompt_tokens,
                 "total_completion_tokens": self.total_completion_tokens,
                 "total_tokens": self.total_tokens,
-                "avg_tokens_per_api_call": round(self.total_tokens / self.api_calls, 2) if self.api_calls > 0 else 0,
+                "avg_tokens_per_api_call": (
+                    round(self.total_tokens / self.api_calls, 2) if self.api_calls > 0 else 0
+                ),
                 "current_token_rate_tps": round(self.get_current_token_rate(), 2),
-                "avg_token_rate_tps": round(self.total_tokens / self.total_time, 2) if self.total_time > 0 else 0,
+                "avg_token_rate_tps": (
+                    round(self.total_tokens / self.total_time, 2) if self.total_time > 0 else 0
+                ),
             },
             "reliability": {
                 "successful_modules": self.successful_modules,
@@ -243,11 +243,7 @@ class PerformanceTracker:
         self.api_call_times.append(api_time)
 
     def record_token_usage(
-        self,
-        prompt_tokens: int,
-        completion_tokens: int,
-        total_tokens: int,
-        api_time: float
+        self, prompt_tokens: int, completion_tokens: int, total_tokens: int, api_time: float
     ) -> None:
         """
         Record token usage from an API call.

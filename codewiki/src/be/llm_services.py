@@ -289,17 +289,17 @@ async def call_llm_async_with_retry(
             get_performance_tracker().record_api_call(api_time)
 
             # Extract and record token usage
-            if hasattr(response, 'usage') and response.usage is not None:
+            if hasattr(response, "usage") and response.usage is not None:
                 usage = response.usage
-                prompt_tokens = getattr(usage, 'prompt_tokens', 0)
-                completion_tokens = getattr(usage, 'completion_tokens', 0)
-                total_tokens = getattr(usage, 'total_tokens', 0)
+                prompt_tokens = getattr(usage, "prompt_tokens", 0)
+                completion_tokens = getattr(usage, "completion_tokens", 0)
+                total_tokens = getattr(usage, "total_tokens", 0)
 
                 get_performance_tracker().record_token_usage(
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens,
                     total_tokens=total_tokens,
-                    api_time=api_time
+                    api_time=api_time,
                 )
 
                 logger.debug(

@@ -162,6 +162,10 @@ class DocumentationGenerator:
             f"Processing {len(leaf_modules)} leaf modules in parallel with concurrency limit {self.config.analysis_options.concurrency_limit}"
         )
 
+        # Load module tree once to avoid redundant I/O
+        module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
+        module_tree = file_manager.load_json(module_tree_path)
+
         semaphore = asyncio.Semaphore(self.config.analysis_options.concurrency_limit)
 
         async def process_with_semaphore(
@@ -173,9 +177,7 @@ class DocumentationGenerator:
                 try:
                     logger.info(f"📄 Processing leaf module: {module_key}")
 
-                    # Get module info
-                    module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
-                    module_tree = file_manager.load_json(module_tree_path)
+                    # Navigate pre-loaded tree
                     module_info = module_tree
                     for path_part in module_path:
                         module_info = module_info[path_part]
@@ -224,14 +226,12 @@ class DocumentationGenerator:
 
             # Track module info with tasks
             task_info = [(mp, mn, process_with_progress(mp, mn)) for mp, mn in leaf_modules]
-            results = await asyncio.gather(
-                *[task[2] for task in task_info], return_exceptions=True
-            )
+            results = await asyncio.gather(*[task[2] for task in task_info], return_exceptions=True)
 
         # Check results and handle failures with module identification
         failed_modules = []
-        for i, result in enumerate(results):
-            module_path = task_info[i][0]
+        for task_info_item, result in zip(task_info, results):
+            module_path = task_info_item[0]
             module_key = "/".join(module_path)
 
             if isinstance(result, Exception):
@@ -239,10 +239,10 @@ class DocumentationGenerator:
                 failed_modules.append(module_key)
                 continue
 
-            returned_module_key, success = result
+            result_module_key, success = result
             if not success:
-                failed_modules.append(returned_module_key)
-                logger.warning(f"Module processing failed: {returned_module_key}")
+                failed_modules.append(module_key)
+                logger.warning(f"Module processing failed: {module_key}")
 
         # Retry failed modules sequentially
         if failed_modules:
