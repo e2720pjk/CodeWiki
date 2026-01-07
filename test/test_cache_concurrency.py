@@ -1,16 +1,15 @@
 """
 Tests for concurrent access to LLM caching system.
 
-Verifies thread safety and race condition handling in LLMPromptCache.
+Verifies async task safety and race condition handling in LLMPromptCache.
 """
 
 import sys
 import asyncio
-import threading
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "codewiki" / "src"))
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from codewiki.src.be.caching import LLMPromptCache
 
@@ -28,7 +27,7 @@ async def test_cache_concurrent_writes():
 
     async def write_item(i: int):
         await asyncio.sleep(0.001)  # Small delay to increase chance of race conditions
-        cache.set(
+        await cache.set(
             prompt=f"Test prompt {i}",
             model="test-model",
             response=f"Test response {i}",
@@ -40,13 +39,13 @@ async def test_cache_concurrent_writes():
     await asyncio.gather(*tasks)
 
     # Verify all items are stored
-    stats = cache.get_stats()
+    stats = await cache.get_stats()
     print(f"  Cache size after {num_writes} concurrent writes: {stats['size']}")
 
     # Verify all items can be retrieved
     success_count = 0
     for i in range(num_writes):
-        response = cache.get(f"Test prompt {i}", "test-model", 1000)
+        response = await cache.get(f"Test prompt {i}", "test-model", 1000)
         if response == f"Test response {i}":
             success_count += 1
 
@@ -71,10 +70,10 @@ async def test_cache_concurrent_reads_writes():
     cache = LLMPromptCache(max_size=100)
 
     async def write_item(key: str, value: str):
-        cache.set(prompt=key, model="test-model", response=value, max_tokens=1000)
+        await cache.set(prompt=key, model="test-model", response=value, max_tokens=1000)
 
     async def read_item(key: str) -> str:
-        return cache.get(key, "test-model", 1000) or "not_found"
+        return (await cache.get(key, "test-model", 1000)) or "not_found"
 
     # Perform concurrent reads and writes
     tasks = []
@@ -113,7 +112,7 @@ async def test_cache_lru_with_concurrency():
     # Write items concurrently
     async def write_items(start: int, count: int):
         for i in range(start, start + count):
-            cache.set(
+            await cache.set(
                 prompt=f"prompt{i}",
                 model="test-model",
                 response=f"response{i}",
@@ -128,7 +127,7 @@ async def test_cache_lru_with_concurrency():
     ]
     await asyncio.gather(*tasks)
 
-    stats = cache.get_stats()
+    stats = await cache.get_stats()
     print(f"  Cache size: {stats['size']}/{stats['max_size']}")
 
     # Verify cache size is within limit
@@ -140,51 +139,44 @@ async def test_cache_lru_with_concurrency():
         return False
 
 
-def test_thread_safety():
+async def test_async_task_safety():
     """
-    Test that cache is thread-safe when accessed from multiple threads.
+    Test that cache is safe when accessed from multiple async tasks.
 
     Expected: No race conditions or deadlocks occur.
     """
-    print("\nTesting thread safety...")
+    print("\nTesting async task safety...")
 
     cache = LLMPromptCache(max_size=100)
-    num_threads = 10
-    operations_per_thread = 20
+    num_tasks = 10
+    operations_per_task = 20
     exceptions = []
 
-    def thread_operations(thread_id: int):
+    async def task_operations(task_id: int):
         try:
-            for i in range(operations_per_thread):
-                key = f"thread{thread_id}_key{i}"
-                cache.set(
+            for i in range(operations_per_task):
+                key = f"task{task_id}_key{i}"
+                await cache.set(
                     prompt=key,
                     model="test-model",
-                    response=f"value{thread_id}_{i}",
+                    response=f"value{task_id}_{i}",
                     max_tokens=1000,
                 )
-                cache.get(key, "test-model", 1000)
+                await cache.get(key, "test-model", 1000)
         except Exception as e:
-            exceptions.append((thread_id, e))
+            exceptions.append((task_id, e))
 
-    # Create and start threads
-    threads = []
-    for i in range(num_threads):
-        thread = threading.Thread(target=thread_operations, args=(i,))
-        threads.append(thread)
-        thread.start()
-
-    # Wait for all threads to complete
-    for thread in threads:
-        thread.join()
+    # Run concurrent tasks
+    tasks = [task_operations(i) for i in range(num_tasks)]
+    await asyncio.gather(*tasks)
 
     if exceptions:
-        print(f"  ✗ {len(exceptions)} threads encountered exceptions:")
-        for thread_id, exc in exceptions:
-            print(f"    Thread {thread_id}: {exc}")
+        print(f"  ✗ {len(exceptions)} tasks encountered exceptions:")
+        for task_id, exc in exceptions:
+            print(f"    Task {task_id}: {exc}")
         return False
     else:
-        print(f"  ✓ {num_threads} threads completed successfully without exceptions")
+        print(f"  ✓ {num_tasks} tasks completed successfully without exceptions")
         return True
 
 
@@ -201,8 +193,8 @@ async def run_all_tests():
     results.append(await test_cache_concurrent_reads_writes())
     results.append(await test_cache_lru_with_concurrency())
 
-    # Run thread safety test
-    results.append(test_thread_safety())
+    # Run async task safety test
+    results.append(await test_async_task_safety())
 
     print("\n" + "=" * 60)
     print("Test Summary")
