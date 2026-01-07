@@ -784,9 +784,9 @@ class EditTool:
 
 async def str_replace_editor(
     ctx: RunContext[CodeWikiDeps],
-    working_dir: Literal["repo", "docs"],
     command: Literal["view", "create", "str_replace", "insert", "undo_edit"],
     path: str,
+    working_dir: Literal["repo", "docs"] = "docs",
     file_text: Optional[str] = None,
     view_range: Optional[List[int]] = None,
     old_str: Optional[str] = None,
@@ -794,18 +794,23 @@ async def str_replace_editor(
     insert_line: Optional[int] = None,
 ) -> str:
     """
-    Custom editing tool for viewing, creating and editing files
-        * State is persistent across command calls and discussions with the user
-        * If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep.
-        * The `create` command cannot be used if the specified `path` already exists as a file
-        * If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
-        * The `undo_edit` command will revert the last edit made to the file at `path`
-        * Only `view` command is allowed when `working_dir` is `repo`.
+    Custom editing tool for viewing, creating and editing documentation files.
+    Use `read_code_components` to read source code.
+
+    Default behavior (working_dir="docs"):
+    - Create/edit documentation files in the docs directory
+    - Primary use case: generating module documentation
+    - Supports all commands: view, create, str_replace, insert, undo_edit
+
+    Repository viewing (working_dir="repo"):
+    - ONLY the `view` command is allowed (read-only access)
+    - Use to explore directory structure when analyzing dependencies
+    - Use `read_code_components` for reading actual source code
 
     Args:
-        working_dir: The working directory to use. Choose `repo` to work with the repository files, or `docs` to work with the generated documentation files.
+        working_dir: The working directory to use. Choose "repo" (view-only) to work with repository files, or "docs" (default) to work with generated documentation files.
         command: The command to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.
-        path: Path to file or directory, e.g. `./chat_core.md` or `./agents/`
+        path: Path to file or directory, e.g. `./module_name.md` or `./agents/`
         file_text: Required parameter of `create` command, with the content of the file to be created.
         view_range: Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.
         old_str: Required parameter of `str_replace` command containing the string in `path` to replace.
@@ -846,22 +851,27 @@ str_replace_editor_tool = Tool(
     name="str_replace_editor",
     description="""
 File system operations for creating and editing documentation files.
-IMPORTANT: You MUST use absolute paths starting with '/' when calling this tool.
-Available commands:
-- view: View file or directory contents
-- create: Create a new file with given text
-- str_replace: Replace old_str with new_str in a file
-- insert: Insert text at a specific line
-- undo_edit: Undo the last edit
+IMPORTANT: Use `read_code_components` to read source code.
+
+Default behavior (working_dir="docs"):
+- Create/edit documentation files in the docs directory
+- Use this for generating module documentation
+- Supports all commands: view, create, str_replace, insert, undo_edit
+
+To view repository structure (working_dir="repo"):
+- ONLY the `view` command is allowed (read-only access)
+- Use this to explore directory structure when analyzing dependencies
+- Example: str_replace_editor(command="view", path=".", working_dir="repo")
+
 Parameters:
-- working_dir: Choose "docs" for documentation files or "repo" for source code (read-only)
-- command: One of the commands above
-- path: Absolute path to the file/directory
-- file_text: Required for "create" command
-- old_str: Required for "str_replace" command
+- working_dir: Optional. Choose "docs" (default) for documentation files, or "repo" (view-only) for source code directory
+- command: One of "view", "create", "str_replace", "insert", "undo_edit"
+- path: Path to file or directory (e.g. "./module_name.md" or "./")
+- file_text: Required for "create" command - content of the file to create
+- view_range: Optional [start, end] for viewing specific lines when path is a file
+- old_str: Required for "str_replace" command - exact string to replace
 - new_str: Optional new text for "str_replace" or "insert" commands
-- view_range: Optional [start, end] for viewing specific lines
-CRITICAL: The "str_replace" command requires old_str to match EXACTLY (character-for-character).
+- insert_line: Required for "insert" command - line number to insert text at
 """.strip(),
     takes_ctx=True,
 )
