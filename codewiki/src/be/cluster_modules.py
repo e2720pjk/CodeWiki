@@ -13,6 +13,34 @@ from codewiki.src.be.prompt_template import format_cluster_prompt
 logger = get_logger(__name__)
 
 
+def _resolve_component_name(simple_name: str, components: Dict[str, Node]) -> Optional[str]:
+    """
+    Resolve a simple component name to its fully qualified component ID.
+    
+    Tries multiple strategies to match:
+    1. Exact match (if the simple_name is already fully qualified)
+    2. Match by Node.name attribute
+    3. Match by ID suffix pattern (endswith `.{simple_name}`)
+    
+    Args:
+        simple_name: The component name to resolve (may be simple or fully qualified)
+        components: Dictionary mapping component IDs to Node objects
+        
+    Returns:
+        Fully qualified component ID if found, None otherwise
+    """
+    if simple_name in components:
+        return simple_name
+    
+    for comp_id, node in components.items():
+        if node.name == simple_name:
+            return comp_id
+        if comp_id.endswith(f".{simple_name}"):
+            return comp_id
+    
+    return None
+
+
 def format_potential_core_components(
     leaf_nodes: List[str], components: Dict[str, Node]
 ) -> tuple[str, str]:
@@ -30,7 +58,8 @@ def format_potential_core_components(
     # group leaf nodes by file
     leaf_nodes_by_file = defaultdict(list)
     for leaf_node in valid_leaf_nodes:
-        leaf_nodes_by_file[components[leaf_node].relative_path].append(leaf_node)
+        component = components[leaf_node]
+        leaf_nodes_by_file[component.relative_path].append(leaf_node)
 
     potential_core_components = ""
     potential_core_components_with_code = ""
@@ -40,7 +69,8 @@ def format_potential_core_components(
         for leaf_node in leaf_nodes:
             potential_core_components += f"\t{leaf_node}\n"
             potential_core_components_with_code += f"\t{leaf_node}\n"
-            potential_core_components_with_code += f"{components[leaf_node].source_code}\n"
+            component = components[leaf_node]
+            potential_core_components_with_code += f"{component.source_code}\n"
 
     return potential_core_components, potential_core_components_with_code
 
@@ -52,12 +82,17 @@ def cluster_modules(
     current_module_tree: dict[str, Any] = {},
     current_module_name: Optional[str] = None,
     current_module_path: Optional[List[str]] = None,
+    validation_stats: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """
     Cluster the potential core components into modules.
     """
     if current_module_path is None:
         current_module_path = []
+    
+    if validation_stats is None:
+        validation_stats = {"fuzzy_matched": {}, "invalid": {}}
+    
     potential_core_components, potential_core_components_with_code = (
         format_potential_core_components(leaf_nodes, components)
     )
@@ -121,9 +156,22 @@ def cluster_modules(
             if node in components:
                 valid_sub_leaf_nodes.append(node)
             else:
-                logger.warning(
-                    f"Skipping invalid sub leaf node '{node}' in module '{module_name}' - not found in components"
-                )
+                resolved_name = _resolve_component_name(node, components)
+                if resolved_name:
+                    valid_sub_leaf_nodes.append(resolved_name)
+                    logger.debug(
+                        f"Fuzzy matched '{node}' to '{resolved_name}' in module '{module_name}'"
+                    )
+                    if module_name not in validation_stats["fuzzy_matched"]:
+                        validation_stats["fuzzy_matched"][module_name] = []
+                    validation_stats["fuzzy_matched"][module_name].append((node, resolved_name))
+                else:
+                    logger.warning(
+                        f"Skipping invalid sub leaf node '{node}' in module '{module_name}' - not found in {len(components)} available components. This may indicate the LLM created a non-existent component ID (hallucination or instruction-following issue)"
+                    )
+                    if module_name not in validation_stats["invalid"]:
+                        validation_stats["invalid"][module_name] = []
+                    validation_stats["invalid"][module_name].append(node)
 
         current_module_path.append(module_name)
         module_info["children"] = {}
@@ -134,7 +182,18 @@ def cluster_modules(
             current_module_tree,
             module_name,
             current_module_path,
+            validation_stats,
         )
         current_module_path.pop()
+
+    # Log summary at top-level completion
+    if current_module_name is None and validation_stats["invalid"]:
+        total_invalid = sum(len(v) for v in validation_stats["invalid"].values())
+        logger.error(
+            f"Clustering completed with {total_invalid} invalid component references across {len(validation_stats['invalid'])} modules"
+        )
+        for module_name, components in validation_stats["invalid"].items():
+            comp_list = list(components)
+            logger.error(f"  Module '{module_name}': {len(comp_list)} invalid components: {comp_list[:5]}{'...' if len(comp_list) > 5 else ''}")
 
     return module_tree
