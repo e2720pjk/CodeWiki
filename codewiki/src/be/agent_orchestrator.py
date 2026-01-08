@@ -1,6 +1,7 @@
 from pydantic_ai import Agent
 
 import os
+import time
 import traceback
 from typing import Dict, List, Any
 
@@ -110,6 +111,7 @@ class AgentOrchestrator:
 
         # Run agent
         try:
+            start = time.perf_counter()
             result = await agent.run(
                 format_user_prompt(
                     module_name=module_name,
@@ -119,17 +121,19 @@ class AgentOrchestrator:
                 ),
                 deps=deps,
             )
+            end = time.perf_counter()
 
             # Record token usage from agent run
             if result is not None:
                 try:
                     usage = result.usage()
                     total_tokens = usage.input_tokens + usage.output_tokens
+                    api_time = end - start
                     performance_tracker.record_token_usage(
                         prompt_tokens=usage.input_tokens,
                         completion_tokens=usage.output_tokens,
                         total_tokens=total_tokens,
-                        api_time=0.0,
+                        api_time=api_time,
                     )
                     logger.debug(
                         f"Module {module_name} token usage: "

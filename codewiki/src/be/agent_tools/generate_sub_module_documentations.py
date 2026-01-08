@@ -1,3 +1,4 @@
+import time
 from pydantic_ai import RunContext, Tool, Agent
 
 from codewiki.src.be.agent_tools.deps import CodeWikiDeps
@@ -81,6 +82,7 @@ async def generate_sub_module_documentation(
         # log current module tree
         # print(f"Current module tree: {json.dumps(deps.module_tree, indent=4)}")
 
+        start_time = time.perf_counter()
         result = await sub_agent.run(
             format_user_prompt(
                 module_name=deps.current_module_name,
@@ -90,24 +92,26 @@ async def generate_sub_module_documentation(
             ),
             deps=ctx.deps,
         )
+        end_time = time.perf_counter()
 
         # Record token usage from sub-agent run
         if result is not None:
             try:
                 usage = result.usage()
                 total_tokens = usage.input_tokens + usage.output_tokens
+                elapsed = end_time - start_time
                 performance_tracker.record_token_usage(
                     prompt_tokens=usage.input_tokens,
                     completion_tokens=usage.output_tokens,
                     total_tokens=total_tokens,
-                    api_time=0.0,
+                    api_time=elapsed,
                 )
                 logger.debug(
                     f"Sub-module {sub_module_name} token usage: "
                     f"input={usage.input_tokens}, output={usage.output_tokens}, "
                     f"total={total_tokens}"
                 )
-            except Exception as e:
+            except AttributeError as e:
                 logger.warning(f"Failed to record token usage for {sub_module_name}: {e}")
 
         # remove the sub-module name from the path to current module and the module tree
