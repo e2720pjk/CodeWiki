@@ -19,7 +19,6 @@ from codewiki.cli.utils.errors import APIError
 
 # Import backend modules
 from codewiki.src.be.documentation_generator import DocumentationGenerator
-from codewiki.src.be.performance_metrics import performance_tracker
 from codewiki.src.config import Config as BackendConfig, set_cli_context
 
 
@@ -235,6 +234,19 @@ class CLIDocumentationGenerator:
             self.progress_tracker.update_stage(0.1, "Generating module documentation...")
 
         try:
+            # Start performance tracking (caller owns lifecycle)
+            # We use the module_tree to determine the total number of modules
+            processing_order = doc_generator.get_processing_order(module_tree)
+
+            # Simple estimation of leaf modules for tracking purposes
+            leaf_count = len(leaf_nodes)
+
+            from codewiki.src.be.performance_metrics import performance_tracker
+
+            performance_tracker.start_tracking(
+                len(processing_order), leaf_count, backend_config.analysis_options.concurrency_limit
+            )
+
             # Run the actual documentation generation
             await doc_generator.generate_module_documentation(components, leaf_nodes)
 

@@ -22,7 +22,7 @@ from codewiki.src.config import (
 )
 from codewiki.src.utils import file_manager
 from codewiki.src.be.agent_orchestrator import AgentOrchestrator
-from codewiki.src.be.performance_metrics import performance_tracker
+from codewiki.src.be.performance_metrics import performance_tracker, PerformanceMetrics
 
 logger = get_logger(__name__)
 
@@ -42,7 +42,11 @@ class DocumentationGenerator:
         self.agent_orchestrator = AgentOrchestrator(config)
 
     def create_documentation_metadata(
-        self, working_dir: str, components: Dict[str, Any], num_leaf_nodes: int
+        self,
+        working_dir: str,
+        components: Dict[str, Any],
+        num_leaf_nodes: int,
+        performance_metrics: Optional[PerformanceMetrics] = None,
     ):
         """Create a metadata file with documentation generation information."""
         from datetime import datetime
@@ -70,6 +74,9 @@ class DocumentationGenerator:
                     metadata["files_generated"].append(file_path)
         except Exception as e:
             logger.warning(f"Could not list generated files: {e}")
+
+        if performance_metrics is not None:
+            metadata["performance"] = performance_metrics.to_dict()
 
         metadata_path = os.path.join(working_dir, "metadata.json")
         file_manager.save_json(metadata, metadata_path)
@@ -185,11 +192,11 @@ class DocumentationGenerator:
                             module_info = module_info.get("children", {})
 
                     # Process the module
-                    start_time = asyncio.get_event_loop().time()
+                    start_time = asyncio.get_running_loop().time()
                     await self.agent_orchestrator.process_module(
                         module_name, components, module_info["components"], module_path, working_dir
                     )
-                    processing_time = asyncio.get_event_loop().time() - start_time
+                    processing_time = asyncio.get_running_loop().time() - start_time
 
                     # Record metrics
                     performance_tracker.record_module_processing(True, processing_time)
@@ -198,6 +205,7 @@ class DocumentationGenerator:
 
                 except Exception as e:
                     logger.error(f"Failed to process leaf module {module_key}: {str(e)}")
+                    # Record failure time if possible, otherwise 0
                     performance_tracker.record_module_processing(False, 0)
                     return module_key, False
 
@@ -290,11 +298,11 @@ class DocumentationGenerator:
                         module_info = module_info.get("children", {})
 
                 # Process the module
-                start_time = asyncio.get_event_loop().time()
+                start_time = asyncio.get_running_loop().time()
                 await self.agent_orchestrator.process_module(
                     module_name, components, module_info["components"], module_path, working_dir
                 )
-                processing_time = asyncio.get_event_loop().time() - start_time
+                processing_time = asyncio.get_running_loop().time() - start_time
 
                 # Record metrics
                 performance_tracker.record_module_processing(True, processing_time)
@@ -373,23 +381,17 @@ class DocumentationGenerator:
 
         for module_path, module_name in processing_order:
             # Get the module info from the tree
-            module_info = module_tree
+            module_info = first_module_tree
             for path_part in module_path:
-                module_info = module_info[path_part]
-                if path_part != module_path[-1]:  # Not the last part
-                    module_info = module_info.get("children", {})
+                if isinstance(module_info, dict):
+                    module_info = module_info.get(path_part, {})
+                    if path_part != module_path[-1]:
+                        module_info = module_info.get("children", {})
 
             if self.is_leaf_module(module_info):
                 leaf_modules.append((module_path, module_name))
             else:
                 parent_modules.append((module_path, module_name))
-
-        # Start performance tracking
-        total_modules = len(processing_order)
-        leaf_count = len(leaf_modules)
-        performance_tracker.start_tracking(
-            total_modules, leaf_count, self.config.analysis_options.concurrency_limit
-        )
 
         # Process modules in dependency order
         final_module_tree = module_tree
@@ -431,12 +433,18 @@ class DocumentationGenerator:
         else:
             logger.info("Processing whole repo because repo can fit in the context window")
             repo_name = os.path.basename(os.path.normpath(self.config.repo_path))
-            start_time = asyncio.get_event_loop().time()
-            final_module_tree = await self.agent_orchestrator.process_module(
-                repo_name, components, leaf_nodes, [], working_dir
-            )
-            processing_time = asyncio.get_event_loop().time() - start_time
-            performance_tracker.record_module_processing(True, processing_time)
+            start_time = asyncio.get_running_loop().time()
+            try:
+                final_module_tree = await self.agent_orchestrator.process_module(
+                    repo_name, components, leaf_nodes, [], working_dir
+                )
+                processing_time = asyncio.get_running_loop().time() - start_time
+                performance_tracker.record_module_processing(True, processing_time)
+            except Exception as e:
+                processing_time = asyncio.get_running_loop().time() - start_time
+                performance_tracker.record_module_processing(False, processing_time)
+                logger.exception(f"Failed to process whole repository: {str(e)}")
+                raise
 
             # save final_module_tree to module_tree.json
             file_manager.save_json(
@@ -448,21 +456,8 @@ class DocumentationGenerator:
             if os.path.exists(repo_overview_path):
                 os.rename(repo_overview_path, os.path.join(working_dir, OVERVIEW_FILENAME))
 
-        # Stop performance tracking and calculate metrics
-        metrics = performance_tracker.stop_tracking()
-        logger.info(f"Documentation generation completed in {metrics.total_time:.2f}s")
-        logger.info(f"API calls: {metrics.api_calls}, Average time: {metrics.avg_api_time:.2f}s")
-        logger.info(f"Success rate: {metrics.success_rate:.1f}%")
-
-        # Add performance metrics to metadata
-        try:
-            self.create_documentation_metadata(working_dir, components, leaf_count)
-            metadata_path = os.path.join(working_dir, "metadata.json")
-            metadata = file_manager.load_json(metadata_path)
-            metadata["performance_metrics"] = metrics.to_dict()
-            file_manager.save_json(metadata, metadata_path)
-        except Exception as e:
-            logger.warning(f"Failed to save performance metrics to metadata: {e}")
+        # Final info
+        logger.info("Documentation generation completed")
 
         return working_dir
 
@@ -531,14 +526,12 @@ class DocumentationGenerator:
         try:
             # Build dependency graph
             components, leaf_nodes = self.graph_builder.build_dependency_graph()
-
             logger.debug(f"Found {len(leaf_nodes)} leaf nodes")
-            # logger.debug(f"Leaf nodes:\n{'\n'.join(sorted(leaf_nodes)[:200])}")
-            # exit()
 
             # Cluster modules
             working_dir = os.path.abspath(self.config.docs_dir)
             file_manager.ensure_directory(working_dir)
+
             first_module_tree_path = os.path.join(working_dir, FIRST_MODULE_TREE_FILENAME)
             module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
 
@@ -552,21 +545,30 @@ class DocumentationGenerator:
                 file_manager.save_json(module_tree, first_module_tree_path)
 
             file_manager.save_json(module_tree, module_tree_path)
-
             logger.debug(f"Grouped components into {len(module_tree)} modules")
+
+            # Start performance tracking (caller-owned lifecycle pattern)
+            processing_order = self.get_processing_order(module_tree)
+            performance_tracker.start_tracking(
+                len(processing_order),
+                len(leaf_nodes),
+                self.config.analysis_options.concurrency_limit,
+            )
 
             # Generate module documentation using dynamic programming approach
             # This processes leaf modules first, then parent modules
             working_dir = await self.generate_module_documentation(components, leaf_nodes)
-
-            # Create documentation metadata
-            self.create_documentation_metadata(working_dir, components, len(leaf_nodes))
 
             # Stop performance tracking and calculate metrics
             metrics = performance_tracker.stop_tracking()
             logger.info(
                 f"Performance metrics: {metrics.total_time:.2f}s total, "
                 f"{metrics.successful_modules}/{metrics.total_modules} modules successful"
+            )
+
+            # Create documentation metadata with metrics
+            self.create_documentation_metadata(
+                working_dir, components, len(leaf_nodes), performance_metrics=metrics
             )
 
             logger.debug(
@@ -577,5 +579,5 @@ class DocumentationGenerator:
 
         except Exception as e:
             logger.error(f"Documentation generation failed: {str(e)}")
-            logger.error(f"Traceback: {traceback.format_exc()}")
+            logger.debug(f"Traceback: {traceback.format_exc()}")
             raise
