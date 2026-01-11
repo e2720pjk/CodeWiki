@@ -431,9 +431,12 @@ class DocumentationGenerator:
         else:
             logger.info("Processing whole repo because repo can fit in the context window")
             repo_name = os.path.basename(os.path.normpath(self.config.repo_path))
+            start_time = asyncio.get_event_loop().time()
             final_module_tree = await self.agent_orchestrator.process_module(
                 repo_name, components, leaf_nodes, [], working_dir
             )
+            processing_time = asyncio.get_event_loop().time() - start_time
+            performance_tracker.record_module_processing(True, processing_time)
 
             # save final_module_tree to module_tree.json
             file_manager.save_json(

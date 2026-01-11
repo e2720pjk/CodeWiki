@@ -19,6 +19,7 @@ from codewiki.cli.utils.errors import APIError
 
 # Import backend modules
 from codewiki.src.be.documentation_generator import DocumentationGenerator
+from codewiki.src.be.performance_metrics import performance_tracker
 from codewiki.src.config import Config as BackendConfig, set_cli_context
 
 
@@ -240,21 +241,24 @@ class CLIDocumentationGenerator:
             if self.verbose:
                 self.progress_tracker.update_stage(0.9, "Creating repository overview...")
 
-            # Create metadata
-            doc_generator.create_documentation_metadata(working_dir, components, len(leaf_nodes))
+            # Stop performance tracking and calculate metrics
+            metrics = performance_tracker.stop_tracking()
+            self.job.statistics.generation_time = metrics.total_time
+
+            # Create metadata with metrics
+            doc_generator.create_documentation_metadata(
+                working_dir, components, len(leaf_nodes), performance_metrics=metrics
+            )
 
             # Collect token statistics
-            from codewiki.src.be.performance_metrics import performance_tracker
-
             self.job.statistics.total_tokens_used = performance_tracker.get_total_tokens()
-            metrics = performance_tracker.get_current_metrics()
-            if metrics:
-                self.job.statistics.avg_token_rate = metrics.get_current_token_rate()
+            self.job.statistics.avg_token_rate = metrics.get_current_token_rate()
 
             # Collect generated files
             for file_path in os.listdir(working_dir):
                 if file_path.endswith(".md") or file_path.endswith(".json"):
-                    self.job.files_generated.append(file_path)
+                    if file_path not in self.job.files_generated:
+                        self.job.files_generated.append(file_path)
 
         except Exception as e:
             raise APIError(f"Documentation generation failed: {e}")
