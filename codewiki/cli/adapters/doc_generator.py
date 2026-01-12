@@ -234,27 +234,43 @@ class CLIDocumentationGenerator:
             self.progress_tracker.update_stage(0.1, "Generating module documentation...")
 
         try:
+            # Start performance tracking (caller owns lifecycle)
+            # We use the module_tree to determine the total number of modules
+            processing_order = doc_generator.get_processing_order(module_tree)
+
+            # Simple estimation of leaf modules for tracking purposes
+            leaf_count = len(leaf_nodes)
+
+            from codewiki.src.be.performance_metrics import performance_tracker
+
+            performance_tracker.start_tracking(
+                len(processing_order), leaf_count, backend_config.analysis_options.concurrency_limit
+            )
+
             # Run the actual documentation generation
             await doc_generator.generate_module_documentation(components, leaf_nodes)
 
             if self.verbose:
                 self.progress_tracker.update_stage(0.9, "Creating repository overview...")
 
-            # Create metadata
-            doc_generator.create_documentation_metadata(working_dir, components, len(leaf_nodes))
+            # Stop performance tracking and calculate metrics
+            metrics = performance_tracker.stop_tracking()
+            self.job.statistics.generation_time = metrics.total_time
+
+            # Create metadata with metrics
+            doc_generator.create_documentation_metadata(
+                working_dir, components, len(leaf_nodes), performance_metrics=metrics
+            )
 
             # Collect token statistics
-            from codewiki.src.be.performance_metrics import performance_tracker
-
             self.job.statistics.total_tokens_used = performance_tracker.get_total_tokens()
-            metrics = performance_tracker.get_current_metrics()
-            if metrics:
-                self.job.statistics.avg_token_rate = metrics.get_current_token_rate()
+            self.job.statistics.avg_token_rate = metrics.get_current_token_rate()
 
             # Collect generated files
             for file_path in os.listdir(working_dir):
                 if file_path.endswith(".md") or file_path.endswith(".json"):
-                    self.job.files_generated.append(file_path)
+                    if file_path not in self.job.files_generated:
+                        self.job.files_generated.append(file_path)
 
         except Exception as e:
             raise APIError(f"Documentation generation failed: {e}")

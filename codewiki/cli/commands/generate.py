@@ -227,6 +227,7 @@ def generate_command(
             max_files=max_files,
             max_entry_points=max_entry_points,
             max_connectivity_files=max_connectivity_files,
+            enable_llm_cache=not no_cache,
         )
 
         # Create generator
