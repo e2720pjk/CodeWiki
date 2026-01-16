@@ -36,7 +36,16 @@ class DependencyGraphBuilder:
             self.config.dependency_graph_dir, f"{sanitized_repo_name}_dependency_graph.json"
         )
 
-        parser = DependencyParser(self.config.repo_path, self.config)
+        # Get custom include/exclude patterns from config
+        include_patterns = self.config.include_patterns if self.config.include_patterns else None
+        exclude_patterns = self.config.exclude_patterns if self.config.exclude_patterns else None
+
+        parser = DependencyParser(
+            self.config.repo_path,
+            config=self.config,
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns
+        )
 
         filtered_folders = None
         # if os.path.exists(filtered_folders_path):

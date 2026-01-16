@@ -15,10 +15,6 @@ from openai import OpenAI, AsyncOpenAI
 from codewiki.src.config import Config
 
 
-# Configuration constants
-DEFAULT_MAX_TOKENS = 32768
-
-
 # Import will be done lazily to avoid circular imports
 def get_performance_tracker():
     from codewiki.src.be.performance_metrics import performance_tracker
@@ -61,7 +57,7 @@ def create_main_model(config: Config) -> OpenAIModel:
     return OpenAIModel(
         model_name=config.main_model,
         provider=OpenAIProvider(base_url=config.llm_base_url, api_key=config.llm_api_key),
-        settings=OpenAIModelSettings(temperature=0.0, max_tokens=DEFAULT_MAX_TOKENS),
+        settings=OpenAIModelSettings(temperature=0.0, max_tokens=config.max_tokens),
     )
 
 
@@ -70,7 +66,7 @@ def create_fallback_model(config: Config) -> OpenAIModel:
     return OpenAIModel(
         model_name=config.fallback_model,
         provider=OpenAIProvider(base_url=config.llm_base_url, api_key=config.llm_api_key),
-        settings=OpenAIModelSettings(temperature=0.0, max_tokens=DEFAULT_MAX_TOKENS),
+        settings=OpenAIModelSettings(temperature=0.0, max_tokens=config.max_tokens),
     )
 
 
@@ -214,7 +210,7 @@ def call_llm(
         model=model,
         messages=[{"role": "user", "content": prompt}],
         temperature=temperature,
-        max_tokens=DEFAULT_MAX_TOKENS,
+        max_tokens=config.max_tokens,
     )
     return response.choices[0].message.content or ""
 
@@ -261,7 +257,7 @@ async def call_llm_async_with_retry(
         model = config.main_model
 
     if max_tokens is None:
-        max_tokens = getattr(config, "max_tokens_per_module", DEFAULT_MAX_TOKENS)
+        max_tokens = config.max_tokens
 
     # Check cache first
     if config.analysis_options.enable_llm_cache:

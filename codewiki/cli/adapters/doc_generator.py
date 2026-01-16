@@ -145,6 +145,10 @@ class CLIDocumentationGenerator:
                 cluster_model=self.config.get("cluster_model"),
                 fallback_model=self.config.get("fallback_model"),
                 analysis_options=self.analysis_options,
+                max_tokens=self.config.get('max_tokens', 32768),
+                max_token_per_module=self.config.get('max_token_per_module', 36369),
+                max_token_per_leaf_module=self.config.get('max_token_per_leaf_module', 16000),
+                agent_instructions=self.config.get('agent_instructions')
             )
 
             # Run backend documentation generation
