@@ -1,18 +1,97 @@
-"""
-Configuration data models for CodeWiki CLI.
-
-This module contains the Configuration class which represents persistent
-user settings stored in ~/.codewiki/config.json. These settings are converted
-to the backend Config class when running documentation generation.
-"""
-
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
+from typing import Optional, List, Dict, Any
+from pathlib import Path
 
 from codewiki.cli.utils.validation import (
     validate_url,
     validate_model_name,
 )
 from codewiki.cli.models.job import AnalysisOptions
+
+
+@dataclass
+class AgentInstructions:
+    """
+    Custom instructions for the documentation agent.
+
+    Allows users to customize:
+    - File filtering (include/exclude patterns)
+    - Module focus (prioritize certain modules)
+    - Documentation type (API docs, architecture docs, etc.)
+    - Custom instructions for the LLM
+
+    Attributes:
+        include_patterns: File patterns to include (e.g., ["*.cs", "*.py"])
+        exclude_patterns: File/directory patterns to exclude (e.g., ["*Tests*", "*test*"])
+        focus_modules: Modules to document in more detail
+        doc_type: Type of documentation to generate
+        custom_instructions: Additional instructions for the documentation agent
+    """
+    include_patterns: Optional[List[str]] = None  # e.g., ["*.cs"] for C# projects
+    exclude_patterns: Optional[List[str]] = None  # e.g., ["*Tests*", "*Specs*"]
+    focus_modules: Optional[List[str]] = None  # e.g., ["src/core", "src/api"]
+    doc_type: Optional[str] = None  # e.g., "api", "architecture", "user-guide"
+    custom_instructions: Optional[str] = None  # Free-form instructions
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary, excluding None values."""
+        result = {}
+        if self.include_patterns:
+            result['include_patterns'] = self.include_patterns
+        if self.exclude_patterns:
+            result['exclude_patterns'] = self.exclude_patterns
+        if self.focus_modules:
+            result['focus_modules'] = self.focus_modules
+        if self.doc_type:
+            result['doc_type'] = self.doc_type
+        if self.custom_instructions:
+            result['custom_instructions'] = self.custom_instructions
+        return result
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'AgentInstructions':
+        """Create AgentInstructions from dictionary."""
+        return cls(
+            include_patterns=data.get('include_patterns'),
+            exclude_patterns=data.get('exclude_patterns'),
+            focus_modules=data.get('focus_modules'),
+            doc_type=data.get('doc_type'),
+            custom_instructions=data.get('custom_instructions'),
+        )
+
+    def is_empty(self) -> bool:
+        """Check if all fields are empty/None."""
+        return not any([
+            self.include_patterns,
+            self.exclude_patterns,
+            self.focus_modules,
+            self.doc_type,
+            self.custom_instructions,
+        ])
+
+    def get_prompt_addition(self) -> str:
+        """Generate prompt additions based on instructions."""
+        additions = []
+
+        if self.doc_type:
+            doc_type_instructions = {
+                'api': "Focus on API documentation: endpoints, parameters, return types, and usage examples.",
+                'architecture': "Focus on architecture documentation: system design, component relationships, and data flow.",
+                'user-guide': "Focus on user guide documentation: how to use features, step-by-step tutorials.",
+                'developer': "Focus on developer documentation: code structure, contribution guidelines, and implementation details.",
+            }
+            if self.doc_type.lower() in doc_type_instructions:
+                additions.append(doc_type_instructions[self.doc_type.lower()])
+            else:
+                additions.append(f"Focus on generating {self.doc_type} documentation.")
+
+        if self.focus_modules:
+            additions.append(f"Pay special attention to and provide more detailed documentation for these modules: {', '.join(self.focus_modules)}")
+
+        if self.custom_instructions:
+            additions.append(f"Additional instructions: {self.custom_instructions}")
+
+        return "\n".join(additions) if additions else ""
 
 
 @dataclass
@@ -24,79 +103,27 @@ class Configuration:
     These settings are converted to backend Config class when running documentation generation.
 
     Attributes:
-        base_url: LLM API base URL (e.g., https://api.anthropic.com)
-                  Required for all LLM operations.
-
+        base_url: LLM API base URL
         main_model: Primary model for documentation generation
-                   (e.g., claude-sonnet-4, gpt-4o)
-                   This model generates most documentation content.
-
         cluster_model: Model for module clustering
-                      Recommend top-tier model for better clustering quality
-                      (e.g., claude-sonnet-4, gpt-4o)
-                      Used only for module organization, not documentation generation.
-
         fallback_model: Fallback model for documentation generation
-                        (e.g., glm-4p5, gpt-4-turbo)
-                        Used when main model fails or is unavailable.
-                        Default: glm-4p5
+        default_output: Default output directory
+        max_tokens: Maximum tokens for LLM response (default: 32768)
+        max_token_per_module: Maximum tokens per module for clustering (default: 36369)
+        max_token_per_leaf_module: Maximum tokens per leaf module (default: 16000)
+        agent_instructions: Custom agent instructions for documentation generation
 
-        default_output: Default output directory for generated docs
-                      Relative path or absolute path
-                      Default: "docs"
-
+        # Analysis Options (Integrated)
         max_files: Maximum number of files to analyze
-                   Range: 1-5000
-                   Default: 100
-                   Limits analysis to prevent OOM on large repositories
-                   Higher values = more comprehensive analysis but slower and more memory
-
         max_entry_points: Maximum fallback entry points
-                          Range: 1-max_files
-                          Default: 5
-                          Number of entry files to identify when no obvious entry point exists
-                          Used for repository structure analysis
-                          Higher values = more entry points detected but potentially irrelevant
-
         max_connectivity_files: Maximum fallback connectivity files
-                               Range: 1-max_files
-                               Default: 10
-                               Number of high-connectivity files to identify
-                               Used for dependency graph construction
-                               Higher values = more nodes in dependency graph but slower analysis
-
-        max_tokens_per_module: Maximum tokens per module
-                              Range: 1000-200000
-                              Default: 36369
-                              Controls module clustering and documentation generation size
-                              Higher values = larger modules with more content but potentially less focused
-
-        max_tokens_per_leaf: Maximum tokens per leaf module
-                            Range: 500-100000
-                            Default: 16000
-                            Controls individual documentation file size
-                            Higher values = longer documentation files but potentially overwhelming
-
         enable_parallel_processing: Enable parallel processing of leaf modules
-                                 Type: boolean
-                                 Default: True
-                                 Improves performance on multi-core systems
-                                 Set to False on systems with limited CPU or memory
-                                 Parallel processing uses ThreadPoolExecutor with configurable workers
-
         concurrency_limit: Maximum concurrent API calls
-                         Range: 1-10
-                         Default: 5
-                         Controls parallelism for LLM API calls
-                         Higher values = faster documentation generation but higher API load
-                         Consider API rate limits and system resources when adjusting
-
+        enable_llm_cache: Enable LLM caching
+        agent_retries: Number of retries for agent tasks
         cache_size: LLM cache size (number of cached prompts)
-                    Range: 100-10000
-                    Default: 1000
-                    Controls memory usage and cache hit rate for LLM prompts
-                    Higher values = more cache hits but higher memory usage
-                    Adjust based on available system memory
+        use_joern: Whether to use Joern for analysis
+        respect_gitignore: Whether to respect .gitignore
     """
 
     base_url: str
@@ -104,14 +131,22 @@ class Configuration:
     cluster_model: str
     fallback_model: str = "glm-4p5"
     default_output: str = "docs"
+    max_tokens: int = 32768
+    max_token_per_module: int = 36369
+    max_token_per_leaf_module: int = 16000
+    agent_instructions: AgentInstructions = field(default_factory=AgentInstructions)
+
+    # Integrated Analysis Options fields
     max_files: int = 100
     max_entry_points: int = 5
     max_connectivity_files: int = 10
-    max_tokens_per_module: int = 36369  # Keep default as requested
-    max_tokens_per_leaf: int = 16000  # Keep default as requested
     enable_parallel_processing: bool = True
     concurrency_limit: int = 5
+    enable_llm_cache: bool = True
+    agent_retries: int = 3
     cache_size: int = 1000
+    use_joern: bool = False
+    respect_gitignore: bool = False
 
     def validate(self):
         """
@@ -135,13 +170,13 @@ class Configuration:
             raise ValueError(
                 f"max_connectivity_files must be between 1 and max_files ({self.max_files}), got {self.max_connectivity_files}"
             )
-        if not (1000 <= self.max_tokens_per_module <= 200000):
+        if not (1000 <= self.max_token_per_module <= 200000):
             raise ValueError(
-                f"max_tokens_per_module must be between 1000 and 200000, got {self.max_tokens_per_module}"
+                f"max_token_per_module must be between 1000 and 200000, got {self.max_token_per_module}"
             )
-        if not (500 <= self.max_tokens_per_leaf <= 100000):
+        if not (500 <= self.max_token_per_leaf_module <= 100000):
             raise ValueError(
-                f"max_tokens_per_leaf must be between 500 and 100000, got {self.max_tokens_per_leaf}"
+                f"max_token_per_leaf_module must be between 500 and 100000, got {self.max_token_per_leaf_module}"
             )
         if not (1 <= self.concurrency_limit <= 10):
             raise ValueError(
@@ -152,7 +187,12 @@ class Configuration:
 
     def to_dict(self) -> dict:
         """Convert to dictionary."""
-        return asdict(self)
+        result = asdict(self)
+        if self.agent_instructions and not self.agent_instructions.is_empty():
+            result['agent_instructions'] = self.agent_instructions.to_dict()
+        else:
+            result.pop('agent_instructions', None)
+        return result
 
     @classmethod
     def from_dict(cls, data: dict) -> "Configuration":
@@ -170,95 +210,58 @@ class Configuration:
         """
 
         def _get_typed_value(key: str, default_value, expected_type: type, field_name: str):
-            """
-            Get value from dictionary with strict type checking.
-
-            Args:
-                key: Dictionary key
-                default_value: Default value if key is missing
-                expected_type: Expected type for value
-                field_name: Name of the field for error messages
-
-            Returns:
-                Typed value from dictionary or default
-
-            Raises:
-                ValueError: If value has incorrect type
-            """
+            """Get value from dictionary with strict type checking."""
             value = data.get(key, default_value)
-
-            # Skip validation if value is None or same object as default
             if value is None or value is default_value:
                 return value
 
-            # Use strict type comparison to prevent bool from passing as int
-            # bool is a subclass of int, so isinstance(True, int) returns True
             actual_type = type(value)
-
             if expected_type is bool:
-                # For bool fields, accept bool only
                 if not isinstance(value, bool):
-                    raise ValueError(
-                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
-                        f"got {actual_type.__name__}"
-                    )
+                    raise ValueError(f"Invalid type for {field_name}: expected bool, got {actual_type.__name__}")
             else:
-                # For non-bool fields, reject bool values and require exact type match
                 if actual_type is bool:
-                    raise ValueError(
-                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
-                        f"got {actual_type.__name__} (boolean values not allowed for numeric fields)"
-                    )
-                if actual_type is not expected_type:
-                    raise ValueError(
-                        f"Invalid type for {field_name}: expected {expected_type.__name__}, "
-                        f"got {actual_type.__name__}"
-                    )
-
+                    raise ValueError(f"Invalid type for {field_name}: expected {expected_type.__name__}, got bool")
+                if not isinstance(value, expected_type):
+                    raise ValueError(f"Invalid type for {field_name}: expected {expected_type.__name__}, got {actual_type.__name__}")
             return value
 
-        # Extract and validate each field with proper type checking
-        base_url = _get_typed_value("base_url", "", str, "base_url")
-        main_model = _get_typed_value("main_model", "", str, "main_model")
-        cluster_model = _get_typed_value("cluster_model", "", str, "cluster_model")
-        fallback_model = _get_typed_value("fallback_model", "glm-4p5", str, "fallback_model")
-        default_output = _get_typed_value("default_output", "docs", str, "default_output")
-        max_files = _get_typed_value("max_files", 100, int, "max_files")
-        max_entry_points = _get_typed_value("max_entry_points", 5, int, "max_entry_points")
-        max_connectivity_files = _get_typed_value(
-            "max_connectivity_files", 10, int, "max_connectivity_files"
-        )
-        max_tokens_per_module = _get_typed_value(
-            "max_tokens_per_module", 36369, int, "max_tokens_per_module"
-        )
-        max_tokens_per_leaf = _get_typed_value(
-            "max_tokens_per_leaf", 16000, int, "max_tokens_per_leaf"
-        )
-        enable_parallel_processing = _get_typed_value(
-            "enable_parallel_processing", True, bool, "enable_parallel_processing"
-        )
-        concurrency_limit = _get_typed_value("concurrency_limit", 5, int, "concurrency_limit")
-        cache_size = _get_typed_value("cache_size", 1000, int, "cache_size")
+        agent_instructions = AgentInstructions()
+        if 'agent_instructions' in data and data['agent_instructions']:
+            agent_instructions = AgentInstructions.from_dict(data['agent_instructions'])
 
-        # Create configuration instance
+        # Support old naming convention if present
+        max_token_per_module = _get_typed_value("max_token_per_module", 
+                                                data.get("max_tokens_per_module", 36369), 
+                                                int, "max_token_per_module")
+        max_token_per_leaf_module = _get_typed_value("max_token_per_leaf_module", 
+                                                     data.get("max_tokens_per_leaf", 16000), 
+                                                     int, "max_token_per_leaf_module")
+
         config = cls(
-            base_url=base_url,
-            main_model=main_model,
-            cluster_model=cluster_model,
-            fallback_model=fallback_model,
-            default_output=default_output,
-            max_files=max_files,
-            max_entry_points=max_entry_points,
-            max_connectivity_files=max_connectivity_files,
-            max_tokens_per_module=max_tokens_per_module,
-            max_tokens_per_leaf=max_tokens_per_leaf,
-            enable_parallel_processing=enable_parallel_processing,
-            concurrency_limit=concurrency_limit,
-            cache_size=cache_size,
+            base_url=_get_typed_value("base_url", "", str, "base_url"),
+            main_model=_get_typed_value("main_model", "", str, "main_model"),
+            cluster_model=_get_typed_value("cluster_model", "", str, "cluster_model"),
+            fallback_model=_get_typed_value("fallback_model", "glm-4p5", str, "fallback_model"),
+            default_output=_get_typed_value("default_output", "docs", str, "default_output"),
+            max_tokens=_get_typed_value("max_tokens", 32768, int, "max_tokens"),
+            max_token_per_module=max_token_per_module,
+            max_token_per_leaf_module=max_token_per_leaf_module,
+            agent_instructions=agent_instructions,
+            max_files=_get_typed_value("max_files", 100, int, "max_files"),
+            max_entry_points=_get_typed_value("max_entry_points", 5, int, "max_entry_points"),
+            max_connectivity_files=_get_typed_value("max_connectivity_files", 10, int, "max_connectivity_files"),
+            enable_parallel_processing=_get_typed_value("enable_parallel_processing", True, bool, "enable_parallel_processing"),
+            concurrency_limit=_get_typed_value("concurrency_limit", 5, int, "concurrency_limit"),
+            enable_llm_cache=_get_typed_value("enable_llm_cache", True, bool, "enable_llm_cache"),
+            agent_retries=_get_typed_value("agent_retries", 3, int, "agent_retries"),
+            cache_size=_get_typed_value("cache_size", 1000, int, "cache_size"),
+            use_joern=_get_typed_value("use_joern", False, bool, "use_joern"),
+            respect_gitignore=_get_typed_value("respect_gitignore", False, bool, "respect_gitignore"),
         )
 
-        # Validate configuration immediately after creation
-        config.validate()
+        if config.is_complete():
+            config.validate()
 
         return config
 
@@ -268,22 +271,22 @@ class Configuration:
             self.base_url and self.main_model and self.cluster_model and self.fallback_model
         )
 
-    def to_backend_config(self, repo_path: str, output_dir: str, api_key: str):
+    def to_backend_config(self, repo_path: str, output_dir: str, api_key: str, runtime_instructions: AgentInstructions = None):
         """
         Convert CLI Configuration to Backend Config.
-
-        This method bridges the gap between persistent user settings (CLI Configuration)
-        and runtime job configuration (Backend Config).
-
-        Args:
-            repo_path: Path to the repository to document
-            output_dir: Output directory for generated documentation
-            api_key: LLM API key (from keyring)
-
-        Returns:
-            Backend Config instance ready for documentation generation
         """
         from codewiki.src.config import Config
+
+        # Merge runtime instructions with persistent settings
+        final_instructions = self.agent_instructions
+        if runtime_instructions and not runtime_instructions.is_empty():
+            final_instructions = AgentInstructions(
+                include_patterns=runtime_instructions.include_patterns or self.agent_instructions.include_patterns,
+                exclude_patterns=runtime_instructions.exclude_patterns or self.agent_instructions.exclude_patterns,
+                focus_modules=runtime_instructions.focus_modules or self.agent_instructions.focus_modules,
+                doc_type=runtime_instructions.doc_type or self.agent_instructions.doc_type,
+                custom_instructions=runtime_instructions.custom_instructions or self.agent_instructions.custom_instructions,
+            )
 
         analysis_options = AnalysisOptions(
             max_files=self.max_files,
@@ -291,7 +294,11 @@ class Configuration:
             max_connectivity_files=self.max_connectivity_files,
             enable_parallel_processing=self.enable_parallel_processing,
             concurrency_limit=self.concurrency_limit,
+            enable_llm_cache=self.enable_llm_cache,
+            agent_retries=self.agent_retries,
             cache_size=self.cache_size,
+            use_joern=self.use_joern,
+            respect_gitignore=self.respect_gitignore,
         )
 
         return Config.from_cli(
@@ -303,6 +310,8 @@ class Configuration:
             cluster_model=self.cluster_model,
             fallback_model=self.fallback_model,
             analysis_options=analysis_options,
-            max_tokens_per_module=self.max_tokens_per_module,
-            max_tokens_per_leaf=self.max_tokens_per_leaf,
+            max_tokens=self.max_tokens,
+            max_token_per_module=self.max_token_per_module,
+            max_token_per_leaf_module=self.max_token_per_leaf_module,
+            agent_instructions=final_instructions.to_dict() if final_instructions else None
         )

@@ -14,26 +14,50 @@ logger.setLevel(logging.DEBUG)
 
 class DependencyParser:
     """Parser for extracting code components from multi-language repositories."""
+    def __init__(
+        self,
+        repo_path: str,
+        config: Optional[Config] = None,
+        include_patterns: Optional[List[str]] = None,
+        exclude_patterns: Optional[List[str]] = None,
+    ):
+        """
+        Initialize the dependency parser.
 
-    def __init__(self, repo_path: str, config: Optional[Config] = None):
+        Args:
+            repo_path: Path to the repository
+            config: Configuration object
+            include_patterns: File patterns to include (overrides config)
+            exclude_patterns: File patterns to exclude (overrides config)
+        """
         self.repo_path = os.path.abspath(repo_path)
         self.components: Dict[str, Node] = {}
         self.modules: Set[str] = set()
         self.config = config
+        self.include_patterns = include_patterns or (config.include_patterns if config else None)
+        self.exclude_patterns = exclude_patterns or (config.exclude_patterns if config else None)
 
         self.analysis_service = AnalysisService(config)
-        self.config = config
 
     def parse_repository(self, _filtered_folders: Optional[List[str]] = None) -> Dict[str, Node]:
         logger.debug(f"Parsing repository at {self.repo_path}")
 
+        # Log custom patterns if set
+        if self.include_patterns:
+            logger.info(f"Using custom include patterns: {self.include_patterns}")
+        if self.exclude_patterns:
+            logger.info(f"Using custom exclude patterns: {self.exclude_patterns}")
+
         # Pass respect_gitignore option if available in config
-        respect_gitignore = self.config.analysis_options.respect_gitignore if self.config else False
+        respect_gitignore = (
+            self.config.analysis_options.respect_gitignore if self.config else False
+        )
+
         # Analyze structure (result not currently used for call graph analysis)
         self.analysis_service._analyze_structure(
             self.repo_path,
-            include_patterns=None,
-            exclude_patterns=None,
+            include_patterns=self.include_patterns,
+            exclude_patterns=self.exclude_patterns,
             respect_gitignore=respect_gitignore,
         )
 

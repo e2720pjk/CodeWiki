@@ -89,27 +89,22 @@ class ConfigManager:
         cluster_model: Optional[str] = None,
         fallback_model: Optional[str] = None,
         default_output: Optional[str] = None,
+        max_tokens: Optional[int] = None,
+        max_token_per_module: Optional[int] = None,
+        max_token_per_leaf_module: Optional[int] = None,
         enable_parallel_processing: Optional[bool] = None,
         concurrency_limit: Optional[int] = None,
-        max_tokens_per_module: Optional[int] = None,
-        max_tokens_per_leaf: Optional[int] = None,
+        enable_llm_cache: Optional[bool] = None,
+        agent_retries: Optional[int] = None,
         cache_size: Optional[int] = None,
+        use_joern: Optional[bool] = None,
+        respect_gitignore: Optional[bool] = None,
+        max_files: Optional[int] = None,
+        max_entry_points: Optional[int] = None,
+        max_connectivity_files: Optional[int] = None,
     ):
         """
         Save configuration to file and keyring.
-
-        Args:
-            api_key: API key (stored in keyring)
-            base_url: LLM API base URL
-            main_model: Primary model
-            cluster_model: Clustering model
-            fallback_model: Fallback model
-            default_output: Default output directory
-            enable_parallel_processing: Enable parallel processing of leaf modules
-            concurrency_limit: Maximum concurrent API calls (1-10)
-            max_tokens_per_module: Maximum tokens per module
-            max_tokens_per_leaf: Maximum tokens per leaf module
-            cache_size: LLM cache size (number of cached prompts)
         """
         # Ensure config directory exists
         try:
@@ -122,12 +117,15 @@ class ConfigManager:
             if CONFIG_FILE.exists():
                 self.load()
             else:
+                from codewiki.cli.models.config import AgentInstructions
+
                 self._config = Configuration(
                     base_url="",
                     main_model="",
                     cluster_model="",
                     fallback_model="glm-4p5",
                     default_output="docs",
+                    agent_instructions=AgentInstructions(),
                 )
 
         # Update fields if provided
@@ -141,22 +139,36 @@ class ConfigManager:
             self._config.fallback_model = fallback_model
         if default_output is not None:
             self._config.default_output = default_output
+        if max_tokens is not None:
+            self._config.max_tokens = max_tokens
+        if max_token_per_module is not None:
+            self._config.max_token_per_module = max_token_per_module
+        if max_token_per_leaf_module is not None:
+            self._config.max_token_per_leaf_module = max_token_per_leaf_module
         if enable_parallel_processing is not None:
             self._config.enable_parallel_processing = enable_parallel_processing
         if concurrency_limit is not None:
             self._config.concurrency_limit = concurrency_limit
-
-        if max_tokens_per_module is not None:
-            self._config.max_tokens_per_module = max_tokens_per_module
-
-        if max_tokens_per_leaf is not None:
-            self._config.max_tokens_per_leaf = max_tokens_per_leaf
-
+        if enable_llm_cache is not None:
+            self._config.enable_llm_cache = enable_llm_cache
+        if agent_retries is not None:
+            self._config.agent_retries = agent_retries
         if cache_size is not None:
             self._config.cache_size = cache_size
+        if use_joern is not None:
+            self._config.use_joern = use_joern
+        if respect_gitignore is not None:
+            self._config.respect_gitignore = respect_gitignore
+        if max_files is not None:
+            self._config.max_files = max_files
+        if max_entry_points is not None:
+            self._config.max_entry_points = max_entry_points
+        if max_connectivity_files is not None:
+            self._config.max_connectivity_files = max_connectivity_files
 
-        # Validate configuration
-        self._config.validate()
+        # Validate configuration (only if base fields are set)
+        if self._config.base_url and self._config.main_model and self._config.cluster_model:
+            self._config.validate()
 
         # Save API key to keyring
         if api_key is not None:

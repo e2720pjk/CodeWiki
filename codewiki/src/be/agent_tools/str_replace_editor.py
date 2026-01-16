@@ -799,7 +799,8 @@ class EditTool:
 async def str_replace_editor(
     ctx: RunContext[CodeWikiDeps],
     command: Literal["view", "create", "str_replace", "insert", "undo_edit"],
-    path: str,
+    path: Optional[str] = None,
+    file: Optional[str] = None,
     working_dir: Literal["repo", "docs"] = "docs",
     file_text: Optional[str] = None,
     view_range: ViewRange = None,
@@ -825,12 +826,18 @@ async def str_replace_editor(
         working_dir: The working directory to use. Choose "repo" (view-only) to work with repository files, or "docs" (default) to work with generated documentation files.
         command: The command to run. Allowed options are: `view`, `create`, `str_replace`, `insert`, `undo_edit`.
         path: Path to file or directory, e.g. `./module_name.md` or `./agents/`
+        file: Alias for `path` parameter (for compatibility with some models)
         file_text: Required parameter of `create` command, with the content of the file to be created.
         view_range: Optional parameter of `view` command when `path` points to a file. If none is given, the full file is shown. If provided, the file will be shown in the indicated line number range, e.g. [11, 12] will show lines 11 and 12. Indexing at 1 to start. Setting `[start_line, -1]` shows all lines from `start_line` to the end of the file.
         old_str: Required parameter of `str_replace` command containing the string in `path` to replace.
         new_str: Optional parameter of `str_replace` command containing the new string (if not given, no string will be added). Required parameter of `insert` command containing the string to insert.
     """
 
+    # Handle both `path` and `file` parameters for model compatibility
+    if path is None and file is None:
+        return "Error: Either `path` or `file` parameter must be provided."
+    if path is None:
+        path = file
     tool = EditTool(ctx.deps.registry, ctx.deps.absolute_docs_path)
     if working_dir == "docs":
         absolute_path = str(Path(ctx.deps.absolute_docs_path) / path)
