@@ -1,6 +1,5 @@
 from dataclasses import dataclass, asdict, field
-from typing import Optional, List, Dict, Any
-from pathlib import Path
+from typing import Optional, List
 
 from codewiki.cli.utils.validation import (
     validate_url,
@@ -27,6 +26,7 @@ class AgentInstructions:
         doc_type: Type of documentation to generate
         custom_instructions: Additional instructions for the documentation agent
     """
+
     include_patterns: Optional[List[str]] = None  # e.g., ["*.cs"] for C# projects
     exclude_patterns: Optional[List[str]] = None  # e.g., ["*Tests*", "*Specs*"]
     focus_modules: Optional[List[str]] = None  # e.g., ["src/core", "src/api"]
@@ -37,37 +37,39 @@ class AgentInstructions:
         """Convert to dictionary, excluding None values."""
         result = {}
         if self.include_patterns:
-            result['include_patterns'] = self.include_patterns
+            result["include_patterns"] = self.include_patterns
         if self.exclude_patterns:
-            result['exclude_patterns'] = self.exclude_patterns
+            result["exclude_patterns"] = self.exclude_patterns
         if self.focus_modules:
-            result['focus_modules'] = self.focus_modules
+            result["focus_modules"] = self.focus_modules
         if self.doc_type:
-            result['doc_type'] = self.doc_type
+            result["doc_type"] = self.doc_type
         if self.custom_instructions:
-            result['custom_instructions'] = self.custom_instructions
+            result["custom_instructions"] = self.custom_instructions
         return result
 
     @classmethod
-    def from_dict(cls, data: dict) -> 'AgentInstructions':
+    def from_dict(cls, data: dict) -> "AgentInstructions":
         """Create AgentInstructions from dictionary."""
         return cls(
-            include_patterns=data.get('include_patterns'),
-            exclude_patterns=data.get('exclude_patterns'),
-            focus_modules=data.get('focus_modules'),
-            doc_type=data.get('doc_type'),
-            custom_instructions=data.get('custom_instructions'),
+            include_patterns=data.get("include_patterns"),
+            exclude_patterns=data.get("exclude_patterns"),
+            focus_modules=data.get("focus_modules"),
+            doc_type=data.get("doc_type"),
+            custom_instructions=data.get("custom_instructions"),
         )
 
     def is_empty(self) -> bool:
         """Check if all fields are empty/None."""
-        return not any([
-            self.include_patterns,
-            self.exclude_patterns,
-            self.focus_modules,
-            self.doc_type,
-            self.custom_instructions,
-        ])
+        return not any(
+            [
+                self.include_patterns,
+                self.exclude_patterns,
+                self.focus_modules,
+                self.doc_type,
+                self.custom_instructions,
+            ]
+        )
 
     def get_prompt_addition(self) -> str:
         """Generate prompt additions based on instructions."""
@@ -75,10 +77,22 @@ class AgentInstructions:
 
         if self.doc_type:
             doc_type_instructions = {
-                'api': "Focus on API documentation: endpoints, parameters, return types, and usage examples.",
-                'architecture': "Focus on architecture documentation: system design, component relationships, and data flow.",
-                'user-guide': "Focus on user guide documentation: how to use features, step-by-step tutorials.",
-                'developer': "Focus on developer documentation: code structure, contribution guidelines, and implementation details.",
+                "api": (
+                    "Focus on API documentation: endpoints, parameters, "
+                    "return types, and usage examples."
+                ),
+                "architecture": (
+                    "Focus on architecture documentation: system design, "
+                    "component relationships, and data flow."
+                ),
+                "user-guide": (
+                    "Focus on user guide documentation: how to use features, "
+                    "step-by-step tutorials."
+                ),
+                "developer": (
+                    "Focus on developer documentation: code structure, "
+                    "contribution guidelines, and implementation details."
+                ),
             }
             if self.doc_type.lower() in doc_type_instructions:
                 additions.append(doc_type_instructions[self.doc_type.lower()])
@@ -86,7 +100,11 @@ class AgentInstructions:
                 additions.append(f"Focus on generating {self.doc_type} documentation.")
 
         if self.focus_modules:
-            additions.append(f"Pay special attention to and provide more detailed documentation for these modules: {', '.join(self.focus_modules)}")
+            modules_str = ", ".join(self.focus_modules)
+            additions.append(
+                f"Pay special attention to and provide more detailed documentation "
+                f"for these modules: {modules_str}"
+            )
 
         if self.custom_instructions:
             additions.append(f"Additional instructions: {self.custom_instructions}")
@@ -111,6 +129,7 @@ class Configuration:
         max_tokens: Maximum tokens for LLM response (default: 32768)
         max_token_per_module: Maximum tokens per module for clustering (default: 36369)
         max_token_per_leaf_module: Maximum tokens per leaf module (default: 16000)
+        max_depth: Maximum depth for hierarchical decomposition (default: 2)
         agent_instructions: Custom agent instructions for documentation generation
 
         # Analysis Options (Integrated)
@@ -134,6 +153,7 @@ class Configuration:
     max_tokens: int = 32768
     max_token_per_module: int = 36369
     max_token_per_leaf_module: int = 16000
+    max_depth: int = 2
     agent_instructions: AgentInstructions = field(default_factory=AgentInstructions)
 
     # Integrated Analysis Options fields
@@ -164,19 +184,23 @@ class Configuration:
             raise ValueError(f"max_files must be between 1 and 5000, got {self.max_files}")
         if not (1 <= self.max_entry_points <= self.max_files):
             raise ValueError(
-                f"max_entry_points must be between 1 and max_files ({self.max_files}), got {self.max_entry_points}"
+                f"max_entry_points must be between 1 and max_files "
+                f"({self.max_files}), got {self.max_entry_points}"
             )
         if not (1 <= self.max_connectivity_files <= self.max_files):
             raise ValueError(
-                f"max_connectivity_files must be between 1 and max_files ({self.max_files}), got {self.max_connectivity_files}"
+                f"max_connectivity_files must be between 1 and max_files "
+                f"({self.max_files}), got {self.max_connectivity_files}"
             )
         if not (1000 <= self.max_token_per_module <= 200000):
             raise ValueError(
-                f"max_token_per_module must be between 1000 and 200000, got {self.max_token_per_module}"
+                f"max_token_per_module must be between 1000 and 200000, "
+                f"got {self.max_token_per_module}"
             )
         if not (500 <= self.max_token_per_leaf_module <= 100000):
             raise ValueError(
-                f"max_token_per_leaf_module must be between 500 and 100000, got {self.max_token_per_leaf_module}"
+                f"max_token_per_leaf_module must be between 500 and 100000, "
+                f"got {self.max_token_per_leaf_module}"
             )
         if not (1 <= self.concurrency_limit <= 10):
             raise ValueError(
@@ -189,9 +213,9 @@ class Configuration:
         """Convert to dictionary."""
         result = asdict(self)
         if self.agent_instructions and not self.agent_instructions.is_empty():
-            result['agent_instructions'] = self.agent_instructions.to_dict()
+            result["agent_instructions"] = self.agent_instructions.to_dict()
         else:
-            result.pop('agent_instructions', None)
+            result.pop("agent_instructions", None)
         return result
 
     @classmethod
@@ -218,25 +242,39 @@ class Configuration:
             actual_type = type(value)
             if expected_type is bool:
                 if not isinstance(value, bool):
-                    raise ValueError(f"Invalid type for {field_name}: expected bool, got {actual_type.__name__}")
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected bool, got {actual_type.__name__}"
+                    )
             else:
                 if actual_type is bool:
-                    raise ValueError(f"Invalid type for {field_name}: expected {expected_type.__name__}, got bool")
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected "
+                        f"{expected_type.__name__}, got bool"
+                    )
                 if not isinstance(value, expected_type):
-                    raise ValueError(f"Invalid type for {field_name}: expected {expected_type.__name__}, got {actual_type.__name__}")
+                    raise ValueError(
+                        f"Invalid type for {field_name}: expected "
+                        f"{expected_type.__name__}, got {actual_type.__name__}"
+                    )
             return value
 
         agent_instructions = AgentInstructions()
-        if 'agent_instructions' in data and data['agent_instructions']:
-            agent_instructions = AgentInstructions.from_dict(data['agent_instructions'])
+        if "agent_instructions" in data and data["agent_instructions"]:
+            agent_instructions = AgentInstructions.from_dict(data["agent_instructions"])
 
         # Support old naming convention if present
-        max_token_per_module = _get_typed_value("max_token_per_module", 
-                                                data.get("max_tokens_per_module", 36369), 
-                                                int, "max_token_per_module")
-        max_token_per_leaf_module = _get_typed_value("max_token_per_leaf_module", 
-                                                     data.get("max_tokens_per_leaf", 16000), 
-                                                     int, "max_token_per_leaf_module")
+        max_token_per_module = _get_typed_value(
+            "max_token_per_module",
+            data.get("max_tokens_per_module", 36369),
+            int,
+            "max_token_per_module",
+        )
+        max_token_per_leaf_module = _get_typed_value(
+            "max_token_per_leaf_module",
+            data.get("max_tokens_per_leaf", 16000),
+            int,
+            "max_token_per_leaf_module",
+        )
 
         config = cls(
             base_url=_get_typed_value("base_url", "", str, "base_url"),
@@ -250,14 +288,21 @@ class Configuration:
             agent_instructions=agent_instructions,
             max_files=_get_typed_value("max_files", 100, int, "max_files"),
             max_entry_points=_get_typed_value("max_entry_points", 5, int, "max_entry_points"),
-            max_connectivity_files=_get_typed_value("max_connectivity_files", 10, int, "max_connectivity_files"),
-            enable_parallel_processing=_get_typed_value("enable_parallel_processing", True, bool, "enable_parallel_processing"),
+            max_connectivity_files=_get_typed_value(
+                "max_connectivity_files", 10, int, "max_connectivity_files"
+            ),
+            enable_parallel_processing=_get_typed_value(
+                "enable_parallel_processing", True, bool, "enable_parallel_processing"
+            ),
             concurrency_limit=_get_typed_value("concurrency_limit", 5, int, "concurrency_limit"),
             enable_llm_cache=_get_typed_value("enable_llm_cache", True, bool, "enable_llm_cache"),
             agent_retries=_get_typed_value("agent_retries", 3, int, "agent_retries"),
             cache_size=_get_typed_value("cache_size", 1000, int, "cache_size"),
             use_joern=_get_typed_value("use_joern", False, bool, "use_joern"),
-            respect_gitignore=_get_typed_value("respect_gitignore", False, bool, "respect_gitignore"),
+            respect_gitignore=_get_typed_value(
+                "respect_gitignore", False, bool, "respect_gitignore"
+            ),
+            max_depth=data.get("max_depth", 2),
         )
 
         if config.is_complete():
@@ -271,7 +316,13 @@ class Configuration:
             self.base_url and self.main_model and self.cluster_model and self.fallback_model
         )
 
-    def to_backend_config(self, repo_path: str, output_dir: str, api_key: str, runtime_instructions: AgentInstructions = None):
+    def to_backend_config(
+        self,
+        repo_path: str,
+        output_dir: str,
+        api_key: str,
+        runtime_instructions: AgentInstructions = None,
+    ):
         """
         Convert CLI Configuration to Backend Config.
         """
@@ -281,11 +332,15 @@ class Configuration:
         final_instructions = self.agent_instructions
         if runtime_instructions and not runtime_instructions.is_empty():
             final_instructions = AgentInstructions(
-                include_patterns=runtime_instructions.include_patterns or self.agent_instructions.include_patterns,
-                exclude_patterns=runtime_instructions.exclude_patterns or self.agent_instructions.exclude_patterns,
-                focus_modules=runtime_instructions.focus_modules or self.agent_instructions.focus_modules,
+                include_patterns=runtime_instructions.include_patterns
+                or self.agent_instructions.include_patterns,
+                exclude_patterns=runtime_instructions.exclude_patterns
+                or self.agent_instructions.exclude_patterns,
+                focus_modules=runtime_instructions.focus_modules
+                or self.agent_instructions.focus_modules,
                 doc_type=runtime_instructions.doc_type or self.agent_instructions.doc_type,
-                custom_instructions=runtime_instructions.custom_instructions or self.agent_instructions.custom_instructions,
+                custom_instructions=runtime_instructions.custom_instructions
+                or self.agent_instructions.custom_instructions,
             )
 
         analysis_options = AnalysisOptions(
@@ -313,5 +368,6 @@ class Configuration:
             max_tokens=self.max_tokens,
             max_token_per_module=self.max_token_per_module,
             max_token_per_leaf_module=self.max_token_per_leaf_module,
-            agent_instructions=final_instructions.to_dict() if final_instructions else None
+            max_depth=self.max_depth,
+            agent_instructions=final_instructions.to_dict() if final_instructions else None,
         )

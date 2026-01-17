@@ -4,9 +4,8 @@ Generate command for documentation generation.
 
 import sys
 import logging
-import traceback
 from pathlib import Path
-from typing import Optional, List, Tuple
+from typing import Optional, List
 import click
 import time
 
@@ -14,7 +13,6 @@ from codewiki.cli.config_manager import ConfigManager
 from codewiki.cli.utils.errors import (
     ConfigurationError,
     RepositoryError,
-    APIError,
     handle_error,
     EXIT_SUCCESS,
 )
@@ -175,6 +173,12 @@ def parse_patterns(patterns_str: str) -> List[str]:
     default=None,
     help="Enable LLM prompt caching (overrides config)",
 )
+@click.option(
+    "--max-depth",
+    type=int,
+    default=None,
+    help="Maximum depth for hierarchical decomposition (overrides config)",
+)
 @click.pass_context
 def generate_command(
     _ctx,
@@ -201,12 +205,52 @@ def generate_command(
     cache_size: Optional[int],
     agent_retries: Optional[int],
     enable_llm_cache: Optional[bool],
+    max_depth: Optional[int],
 ):
     """
     Generate comprehensive documentation for a code repository.
 
     Analyzes the current repository and generates documentation using LLM-powered
     analysis. Documentation is output to ./docs/ by default.
+
+    Examples:
+
+    \b
+    # Basic generation
+    $ codewiki generate
+
+    \b
+    # With git branch creation and GitHub Pages
+    $ codewiki generate --create-branch --github-pages
+
+    \b
+    # Force full regeneration
+    $ codewiki generate --no-cache
+
+    \b
+    # C# project: only .cs files, exclude tests
+    $ codewiki generate --include "*.cs" --exclude "*Tests*,*Specs*"
+
+    \b
+    # Focus on specific modules with architecture docs
+    $ codewiki generate --focus "src/core,src/api" --doc-type architecture
+
+    \b
+    # Custom instructions
+    $ codewiki generate --instructions "Focus on public APIs and include usage examples"
+
+    \b
+    # Override max tokens for this generation
+    $ codewiki generate --max-tokens 16384
+
+    \b
+    # Set all max token limits
+    $ codewiki generate --max-tokens 32768 \\
+        --max-token-per-module 40000 --max-token-per-leaf-module 20000
+
+    \b
+    # Override max depth for hierarchical decomposition
+    $ codewiki generate --max-depth 3
     """
     logger = create_logger(verbose=verbose)
     start_time = time.time()
@@ -364,6 +408,25 @@ def generate_command(
         elif config.agent_instructions and not config.agent_instructions.is_empty():
             agent_instructions_dict = config.agent_instructions.to_dict()
 
+        # Log max token settings if verbose
+        if verbose:
+            effective_max_tokens = max_tokens if max_tokens is not None else config.max_tokens
+            effective_max_token_per_module = (
+                max_token_per_module
+                if max_token_per_module is not None
+                else config.max_token_per_module
+            )
+            effective_max_token_per_leaf = (
+                max_token_per_leaf_module
+                if max_token_per_leaf_module is not None
+                else config.max_token_per_leaf_module
+            )
+            effective_max_depth = max_depth if max_depth is not None else config.max_depth
+            logger.debug(f"Max tokens: {effective_max_tokens}")
+            logger.debug(f"Max token/module: {effective_max_token_per_module}")
+            logger.debug(f"Max token/leaf module: {effective_max_token_per_leaf}")
+            logger.debug(f"Max depth: {effective_max_depth}")
+
         # Create generator
         generator = CLIDocumentationGenerator(
             repo_path=repo_path,
@@ -382,6 +445,7 @@ def generate_command(
                 "max_token_per_leaf_module": max_token_per_leaf_module
                 if max_token_per_leaf_module is not None
                 else config.max_token_per_leaf_module,
+                "max_depth": max_depth if max_depth is not None else config.max_depth,
             },
             verbose=verbose,
             generate_html=github_pages,

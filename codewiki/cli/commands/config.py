@@ -18,7 +18,6 @@ from codewiki.cli.utils.validation import (
     validate_url,
     validate_api_key,
     validate_model_name,
-    is_top_tier_model,
     mask_api_key,
 )
 
@@ -101,6 +100,9 @@ def config_group():
     default=None,
     help="Maximum fallback connectivity files (default: 10)",
 )
+@click.option(
+    "--max-depth", type=int, help="Maximum depth for hierarchical decomposition (default: 2)"
+)
 def config_set(
     api_key: Optional[str],
     base_url: Optional[str],
@@ -120,6 +122,7 @@ def config_set(
     max_files: Optional[int],
     max_entry_points: Optional[int],
     max_connectivity_files: Optional[int],
+    max_depth: Optional[int],
 ):
     """
     Set configuration values for CodeWiki.
@@ -143,6 +146,15 @@ def config_set(
     \b
     # Set max tokens for LLM response
     $ codewiki config set --max-tokens 16384
+    
+    \b
+    # Set all max token settings
+    $ codewiki config set --max-tokens 32768 \\
+        --max-token-per-module 40000 --max-token-per-leaf-module 20000
+
+    \b
+    # Set max depth for hierarchical decomposition
+    $ codewiki config set --max-depth 3
     """
     try:
         # Check if at least one option is provided
@@ -166,6 +178,7 @@ def config_set(
                 max_files is not None,
                 max_entry_points is not None,
                 max_connectivity_files is not None,
+                max_depth is not None,
             ]
         ):
             click.echo("No options provided. Use --help for usage information.")
@@ -219,6 +232,11 @@ def config_set(
                 raise ConfigurationError("max_connectivity_files must be a positive integer")
             validated_data["max_connectivity_files"] = max_connectivity_files
 
+        if max_depth is not None:
+            if max_depth < 1:
+                raise ConfigurationError("max_depth must be a positive integer")
+            validated_data["max_depth"] = max_depth
+
         # Integrated flags/values (no validation needed beyond click types)
         if enable_parallel_processing is not None:
             validated_data["enable_parallel_processing"] = enable_parallel_processing
@@ -234,7 +252,6 @@ def config_set(
             validated_data["agent_retries"] = agent_retries
         if enable_llm_cache is not None:
             validated_data["enable_llm_cache"] = enable_llm_cache
-
         # Create config manager and save
         manager = ConfigManager()
         manager.load()  # Load existing config if present
@@ -258,6 +275,7 @@ def config_set(
             max_files=validated_data.get("max_files"),
             max_entry_points=validated_data.get("max_entry_points"),
             max_connectivity_files=validated_data.get("max_connectivity_files"),
+            max_depth=validated_data.get("max_depth"),
         )
 
         # Display success messages
@@ -292,6 +310,9 @@ def config_set(
         if max_connectivity_files:
             click.secho(f"✓ Max connectivity files: {max_connectivity_files}", fg="green")
 
+        if max_depth:
+            click.secho(f"✓ Max depth: {max_depth}", fg="green")
+
         if use_joern is not None:
             click.secho(f"✓ Joern CPG: {'enabled' if use_joern else 'disabled'}", fg="green")
         if respect_gitignore is not None:
@@ -306,7 +327,6 @@ def config_set(
             )
         if concurrency_limit is not None:
             click.secho(f"✓ Concurrency limit: {concurrency_limit}", fg="green")
-
         click.echo("\n" + click.style("Configuration updated successfully.", fg="green", bold=True))
 
     except ConfigurationError as e:
@@ -334,6 +354,9 @@ def config_show(output_json: bool):
         if output_json:
             output = manager.get_config().to_dict()
             output["api_key"] = mask_api_key(api_key) if api_key else "Not set"
+            output["api_key_storage"] = (
+                "keychain" if manager.keyring_available else "encrypted_file"
+            )
             output["config_file"] = str(manager.config_file_path)
             click.echo(json.dumps(output, indent=2))
         else:
@@ -343,9 +366,8 @@ def config_show(output_json: bool):
 
             click.secho("Credentials", fg="cyan", bold=True)
             click.echo(f"  API Key:          {mask_api_key(api_key) if api_key else 'Not set'}")
-            click.echo(
-                f"  Storage:          {'system keychain' if manager.keyring_available else 'encrypted file'}"
-            )
+            storage_type = "system keychain" if manager.keyring_available else "encrypted file"
+            click.echo(f"  Storage:          {storage_type}")
 
             click.echo()
             click.secho("API Settings", fg="cyan", bold=True)
@@ -372,6 +394,11 @@ def config_show(output_json: bool):
             click.echo(
                 f"  LLM Cache:               {config.enable_llm_cache} (Size: {config.cache_size})"
             )
+
+            click.echo()
+            click.secho("Decomposition Settings", fg="cyan", bold=True)
+            if config:
+                click.echo(f"  Max Depth:               {config.max_depth}")
 
             click.echo()
             click.secho("Agent Instructions", fg="cyan", bold=True)

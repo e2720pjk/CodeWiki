@@ -102,9 +102,32 @@ class ConfigManager:
         max_files: Optional[int] = None,
         max_entry_points: Optional[int] = None,
         max_connectivity_files: Optional[int] = None,
+        max_depth: Optional[int] = None,
     ):
         """
         Save configuration to file and keyring.
+
+        Args:
+            api_key: API key (stored in keyring)
+            base_url: LLM API base URL
+            main_model: Primary model
+            cluster_model: Clustering model
+            fallback_model: Fallback model
+            default_output: Default output directory
+            max_tokens: Maximum tokens for LLM response
+            max_token_per_module: Maximum tokens per module for clustering
+            max_token_per_leaf_module: Maximum tokens per leaf module
+            enable_parallel_processing: Enable parallel processing of leaf modules
+            concurrency_limit: Maximum concurrent API calls
+            enable_llm_cache: Enable LLM caching
+            agent_retries: Number of retries for agent tasks
+            cache_size: LLM cache size (number of cached prompts)
+            use_joern: Whether to use Joern for analysis
+            respect_gitignore: Whether to respect .gitignore
+            max_files: Maximum number of files to analyze
+            max_entry_points: Maximum fallback entry points
+            max_connectivity_files: Maximum fallback connectivity files
+            max_depth: Maximum depth for hierarchical decomposition
         """
         # Ensure config directory exists
         try:
@@ -165,7 +188,8 @@ class ConfigManager:
             self._config.max_entry_points = max_entry_points
         if max_connectivity_files is not None:
             self._config.max_connectivity_files = max_connectivity_files
-
+        if max_depth is not None:
+            self._config.max_depth = max_depth
         # Validate configuration (only if base fields are set)
         if self._config.base_url and self._config.main_model and self._config.cluster_model:
             self._config.validate()
