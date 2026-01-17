@@ -13,9 +13,17 @@ from pathlib import Path
 from codewiki.src.be.dependency_analyzer.utils.security import safe_open_text, assert_safe_path
 from codewiki.src.be.dependency_analyzer.analysis.repo_analyzer import RepoAnalyzer
 from codewiki.src.be.dependency_analyzer.analysis.call_graph_analyzer import CallGraphAnalyzer
-from codewiki.src.be.dependency_analyzer.analysis.cloning import clone_repository, cleanup_repository, parse_github_url
+from codewiki.src.be.dependency_analyzer.analysis.cloning import (
+    clone_repository,
+    cleanup_repository,
+    parse_github_url,
+)
 from codewiki.src.be.dependency_analyzer.models.analysis import AnalysisResult
 from codewiki.src.be.dependency_analyzer.models.core import Repository
+from codewiki.src.be.dependency_analyzer.utils.patterns import (
+    find_fallback_entry_points,
+    find_fallback_connectivity_files,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -33,62 +41,112 @@ class AnalysisService:
 
     """
 
-    def __init__(self):
+    def __init__(self, config=None):
         """Initialize the analysis service with language-specific analyzers."""
         self.call_graph_analyzer = CallGraphAnalyzer()
+        self.config = config
         self._temp_directories = []
+
+    def _validate_file_limits(
+        self, max_files: int, max_entry_points: int, max_connectivity_files: int
+    ):
+        """Validate file limit parameters."""
+        if max_files <= 0:
+            raise ValueError("max_files must be positive")
+        if max_entry_points <= 0:
+            raise ValueError("max_entry_points must be positive")
+        if max_connectivity_files <= 0:
+            raise ValueError("max_connectivity_files must be positive")
+        if max_entry_points > max_files:
+            raise ValueError("max_entry_points cannot exceed max_files")
+        if max_connectivity_files > max_files:
+            raise ValueError("max_connectivity_files cannot exceed max_files")
+        if max_files > 10000:
+            raise ValueError("max_files cannot exceed 10000 to prevent OOM")
 
     def analyze_local_repository(
         self,
         repo_path: str,
         max_files: int = 100,
-        languages: Optional[List[str]] = None
+        max_entry_points: int = 5,
+        max_connectivity_files: int = 10,
+        languages: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """
         Analyze a local repository folder.
-        
+
         Args:
             repo_path: Path to local repository folder
             max_files: Maximum number of files to analyze
+            max_entry_points: Maximum fallback entry points
+            max_connectivity_files: Maximum fallback connectivity files
             languages: List of languages to include (e.g., ['python', 'javascript'])
-            
+
         Returns:
-            Dict with analysis results including nodes and relationships
+            Dict with analysis results including:
+                - nodes: Dict of function/call nodes
+                - relationships: List of call relationships
+                - entry_points: List of entry point files
+                - connectivity_files: List of high-connectivity files
+                - summary: Summary statistics including total_files, total_nodes,
+                          total_relationships, total_entry_points, total_connectivity_files
         """
         try:
             logger.debug(f"Analyzing local repository at {repo_path}")
-            
+
+            # Validate file limits
+            self._validate_file_limits(max_files, max_entry_points, max_connectivity_files)
+
             # Get repo analyzer to find files
             repo_analyzer = RepoAnalyzer()
             structure_result = repo_analyzer.analyze_repository_structure(repo_path)
-            
+
             # Extract code files
             code_files = self.call_graph_analyzer.extract_code_files(structure_result["file_tree"])
-            
+
             # Filter by languages if specified
             if languages:
                 code_files = [f for f in code_files if f.get("language") in languages]
-            
+
             # Limit number of files
             if len(code_files) > max_files:
                 code_files = code_files[:max_files]
                 logger.debug(f"Limited analysis to {max_files} files")
-            
+
             logger.debug(f"Analyzing {len(code_files)} files")
-            
+
+            # Find fallback entry points
+            entry_points = find_fallback_entry_points(code_files, max_files=max_entry_points)
+            logger.debug(f"Found {len(entry_points)} fallback entry points")
+
+            # Find fallback connectivity files
+            connectivity_files = find_fallback_connectivity_files(
+                code_files, max_files=max_connectivity_files
+            )
+            logger.debug(f"Found {len(connectivity_files)} fallback connectivity files")
+
             # Analyze files
-            result = self.call_graph_analyzer.analyze_code_files(code_files, repo_path)
-            
+            enable_parallel = (
+                self.config.analysis_options.enable_parallel_processing if self.config else True
+            )
+            result = self.call_graph_analyzer.analyze_code_files(
+                code_files, repo_path, enable_parallel
+            )
+
             return {
                 "nodes": result.get("functions", {}),
                 "relationships": result.get("relationships", []),
+                "entry_points": entry_points,
+                "connectivity_files": connectivity_files,
                 "summary": {
                     "total_files": len(code_files),
                     "total_nodes": len(result.get("functions", {})),
-                    "total_relationships": len(result.get("relationships", []))
-                }
+                    "total_relationships": len(result.get("relationships", [])),
+                    "total_entry_points": len(entry_points),
+                    "total_connectivity_files": len(connectivity_files),
+                },
             }
-            
+
         except Exception as e:
             logger.error(f"Local repository analysis failed: {str(e)}", exc_info=True)
             raise RuntimeError(f"Analysis failed: {str(e)}")
@@ -233,12 +291,20 @@ class AnalysisService:
         repo_dir: str,
         include_patterns: Optional[List[str]],
         exclude_patterns: Optional[List[str]],
+        respect_gitignore: bool = False,
     ) -> Dict[str, Any]:
         """Analyze repository file structure with filtering."""
         logger.debug(
-            f"Initializing RepoAnalyzer with include: {include_patterns}, exclude: {exclude_patterns}"
+            f"Initializing RepoAnalyzer with include: {include_patterns}, exclude: {exclude_patterns}, respect_gitignore: {respect_gitignore}"
         )
-        repo_analyzer = RepoAnalyzer(include_patterns, exclude_patterns)
+        repo_analyzer = RepoAnalyzer(
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            respect_gitignore=(
+                self.config.analysis_options.respect_gitignore if self.config else respect_gitignore
+            ),
+            repo_path=repo_dir,
+        )
         return repo_analyzer.analyze_repository_structure(repo_dir)
 
     def _read_readme_file(self, repo_dir: str) -> Optional[str]:
@@ -282,11 +348,18 @@ class AnalysisService:
         logger.debug("Extracting code files from file tree...")
         code_files = self.call_graph_analyzer.extract_code_files(file_tree)
 
-        logger.debug(f"Found {len(code_files)} total code files. Filtering for supported languages.")
+        logger.debug(
+            f"Found {len(code_files)} total code files. Filtering for supported languages."
+        )
         supported_files = self._filter_supported_languages(code_files)
         logger.debug(f"Analyzing {len(supported_files)} supported files.")
 
-        result = self.call_graph_analyzer.analyze_code_files(supported_files, repo_dir)
+        enable_parallel = (
+            self.config.analysis_options.enable_parallel_processing if self.config else True
+        )
+        result = self.call_graph_analyzer.analyze_code_files(
+            supported_files, repo_dir, enable_parallel
+        )
 
         result["call_graph"]["supported_languages"] = self._get_supported_languages()
         result["call_graph"]["unsupported_files"] = len(code_files) - len(supported_files)

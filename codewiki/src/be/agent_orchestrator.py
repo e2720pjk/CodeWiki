@@ -1,45 +1,18 @@
 from pydantic_ai import Agent
-# import logfire
-import logging
+
 import os
+import time
 import traceback
 from typing import Dict, List, Any
 
-# Configure logging and monitoring
-
-logger = logging.getLogger(__name__)
-
-# try:
-#     # Configure logfire with environment variables for Docker compatibility
-#     logfire_token = os.getenv('LOGFIRE_TOKEN')
-#     logfire_project = os.getenv('LOGFIRE_PROJECT_NAME', 'default')
-#     logfire_service = os.getenv('LOGFIRE_SERVICE_NAME', 'default')
-    
-#     if logfire_token:
-#         # Configure with explicit token (for Docker)
-#         logfire.configure(
-#             token=logfire_token,
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-#     else:
-#         # Use default configuration (for local development with logfire auth)
-#         logfire.configure(
-#             project_name=logfire_project,
-#             service_name=logfire_service,
-#         )
-    
-#     logfire.instrument_pydantic_ai()
-#     logger.debug(f"Logfire configured successfully for project: {logfire_project}")
-    
-# except Exception as e:
-#     logger.warning(f"Failed to configure logfire: {e}")
-
-# Local imports
+from codewiki.src.be.logging_config import get_logger
+from codewiki.src.be.performance_metrics import performance_tracker
 from codewiki.src.be.agent_tools.deps import CodeWikiDeps
 from codewiki.src.be.agent_tools.read_code_components import read_code_components_tool
 from codewiki.src.be.agent_tools.str_replace_editor import str_replace_editor_tool
-from codewiki.src.be.agent_tools.generate_sub_module_documentations import generate_sub_module_documentation_tool
+from codewiki.src.be.agent_tools.generate_sub_module_documentations import (
+    generate_sub_module_documentation_tool,
+)
 from codewiki.src.be.llm_services import create_fallback_models
 from codewiki.src.be.prompt_template import (
     format_user_prompt,
@@ -55,17 +28,20 @@ from codewiki.src.config import (
 from codewiki.src.utils import file_manager
 from codewiki.src.be.dependency_analyzer.models.core import Node
 
+logger = get_logger(__name__)
+
 
 class AgentOrchestrator:
     """Orchestrates the AI agents for documentation generation."""
-    
+
     def __init__(self, config: Config):
         self.config = config
         self.fallback_models = create_fallback_models(config)
         self.custom_instructions = config.get_prompt_addition() if config else None
-    
-    def create_agent(self, module_name: str, components: Dict[str, Any], 
-                    core_component_ids: List[str]) -> Agent:
+
+    def create_agent(
+        self, module_name: str, components: Dict[str, Any], core_component_ids: List[str]
+    ) -> Agent:
         """Create an appropriate agent based on module complexity."""
         
         if is_complex_module(components, core_component_ids):
@@ -73,10 +49,11 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[
-                    read_code_components_tool, 
-                    str_replace_editor_tool, 
-                    generate_sub_module_documentation_tool
+                    read_code_components_tool,
+                    str_replace_editor_tool,
+                    generate_sub_module_documentation_tool,
                 ],
                 system_prompt=format_system_prompt(module_name, self.custom_instructions),
             )
@@ -85,22 +62,29 @@ class AgentOrchestrator:
                 self.fallback_models,
                 name=module_name,
                 deps_type=CodeWikiDeps,
+                retries=self.config.analysis_options.agent_retries,
                 tools=[read_code_components_tool, str_replace_editor_tool],
                 system_prompt=format_leaf_system_prompt(module_name, self.custom_instructions),
             )
-    
-    async def process_module(self, module_name: str, components: Dict[str, Node], 
-                           core_component_ids: List[str], module_path: List[str], working_dir: str) -> Dict[str, Any]:
+
+    async def process_module(
+        self,
+        module_name: str,
+        components: Dict[str, Node],
+        core_component_ids: List[str],
+        module_path: List[str],
+        working_dir: str,
+    ) -> Dict[str, Any]:
         """Process a single module and generate its documentation."""
         logger.info(f"Processing module: {module_name}")
-        
+
         # Load or create module tree
         module_tree_path = os.path.join(working_dir, MODULE_TREE_FILENAME)
         module_tree = file_manager.load_json(module_tree_path)
-        
+
         # Create agent
         agent = self.create_agent(module_name, components, core_component_ids)
-        
+
         # Create dependencies
         deps = CodeWikiDeps(
             absolute_docs_path=working_dir,
@@ -127,26 +111,59 @@ class AgentOrchestrator:
         if os.path.exists(docs_path):
             logger.info(f"✓ Module docs already exists at {docs_path}")
             return module_tree
-        
+
         # Run agent
         try:
+            start = time.perf_counter()
             result = await agent.run(
                 format_user_prompt(
                     module_name=module_name,
                     core_component_ids=core_component_ids,
                     components=components,
-                    module_tree=deps.module_tree
+                    module_tree=deps.module_tree,
                 ),
-                deps=deps
+                deps=deps,
             )
-            
+            end = time.perf_counter()
+
+            # Record token usage from agent run
+            if result is not None:
+                try:
+                    usage = result.usage()
+                    total_tokens = usage.input_tokens + usage.output_tokens
+                    api_time = end - start
+                    performance_tracker.record_token_usage(
+                        prompt_tokens=usage.input_tokens,
+                        completion_tokens=usage.output_tokens,
+                        total_tokens=total_tokens,
+                        api_time=api_time,
+                    )
+                    logger.debug(
+                        f"Module {module_name} token usage: "
+                        f"input={usage.input_tokens}, output={usage.output_tokens}, "
+                        f"total={total_tokens}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to record token usage for {module_name}: {e}")
+
             # Save updated module tree
             file_manager.save_json(deps.module_tree, module_tree_path)
             logger.debug(f"Successfully processed module: {module_name}")
-            
+
             return deps.module_tree
-            
+
         except Exception as e:
-            logger.error(f"Error processing module {module_name}: {str(e)}")
+            error_msg = str(e)
+            logger.error(f"Error processing module {module_name}: {error_msg}")
+
+            # Check if it's a tool retry error and provide guidance
+            if "exceeded max retries" in error_msg:
+                logger.error(
+                    "Tool execution failed - LLM may be having difficulty generating valid tool calls."
+                )
+                logger.error(
+                    "Try: 1) Increasing retries parameter, 2) Checking tool descriptions, 3) Using a more capable LLM"
+                )
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             raise
