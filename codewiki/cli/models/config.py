@@ -118,6 +118,7 @@ class Configuration:
         max_token_per_leaf_module: Maximum tokens per leaf module (default: 16000)
         max_depth: Maximum depth for hierarchical decomposition (default: 2)
         agent_instructions: Custom agent instructions for documentation generation
+        respect_gitignore: Respect .gitignore patterns during analysis
     """
     base_url: str
     main_model: str
@@ -129,6 +130,7 @@ class Configuration:
     max_token_per_leaf_module: int = 16000
     max_depth: int = 2
     agent_instructions: AgentInstructions = field(default_factory=AgentInstructions)
+    respect_gitignore: bool = False
     
     def validate(self):
         """
@@ -153,6 +155,7 @@ class Configuration:
             'max_token_per_module': self.max_token_per_module,
             'max_token_per_leaf_module': self.max_token_per_leaf_module,
             'max_depth': self.max_depth,
+            'respect_gitignore': self.respect_gitignore,
         }
         if self.agent_instructions and not self.agent_instructions.is_empty():
             result['agent_instructions'] = self.agent_instructions.to_dict()
@@ -184,6 +187,7 @@ class Configuration:
             max_token_per_leaf_module=data.get('max_token_per_leaf_module', 16000),
             max_depth=data.get('max_depth', 2),
             agent_instructions=agent_instructions,
+            respect_gitignore=data.get('respect_gitignore', False),
         )
     
     def is_complete(self) -> bool:
@@ -237,6 +241,7 @@ class Configuration:
             max_token_per_module=self.max_token_per_module,
             max_token_per_leaf_module=self.max_token_per_leaf_module,
             max_depth=self.max_depth,
-            agent_instructions=final_instructions.to_dict() if final_instructions else None
+            agent_instructions=final_instructions.to_dict() if final_instructions else None,
+            respect_gitignore=self.respect_gitignore,
         )
 

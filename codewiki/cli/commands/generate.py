@@ -126,6 +126,12 @@ def parse_patterns(patterns_str: str) -> List[str]:
     default=None,
     help="Maximum depth for hierarchical decomposition (overrides config)",
 )
+@click.option(
+    '--respect-gitignore',
+    is_flag=True,
+    default=None,
+    help='Respect .gitignore patterns during analysis'
+)
 @click.pass_context
 def generate_command(
     ctx,
@@ -142,7 +148,8 @@ def generate_command(
     max_tokens: Optional[int],
     max_token_per_module: Optional[int],
     max_token_per_leaf_module: Optional[int],
-    max_depth: Optional[int]
+    max_depth: Optional[int],
+    respect_gitignore: Optional[bool]
 ):
     """
     Generate comprehensive documentation for a code repository.
@@ -290,7 +297,8 @@ def generate_command(
             create_branch=create_branch,
             github_pages=github_pages,
             no_cache=no_cache,
-            custom_output=output if output != "docs" else None
+            custom_output=output if output != "docs" else None,
+            respect_gitignore=respect_gitignore if respect_gitignore is not None else config.respect_gitignore
         )
         
         # Create runtime agent instructions from CLI options
@@ -322,10 +330,12 @@ def generate_command(
             effective_max_token_per_module = max_token_per_module if max_token_per_module is not None else config.max_token_per_module
             effective_max_token_per_leaf = max_token_per_leaf_module if max_token_per_leaf_module is not None else config.max_token_per_leaf_module
             effective_max_depth = max_depth if max_depth is not None else config.max_depth
+            effective_respect_gitignore = respect_gitignore if respect_gitignore is not None else config.respect_gitignore
             logger.debug(f"Max tokens: {effective_max_tokens}")
             logger.debug(f"Max token/module: {effective_max_token_per_module}")
             logger.debug(f"Max token/leaf module: {effective_max_token_per_leaf}")
             logger.debug(f"Max depth: {effective_max_depth}")
+            logger.debug(f"Respect gitignore: {effective_respect_gitignore}")
         
         # Get agent instructions (merge runtime with persistent)
         agent_instructions_dict = None
@@ -359,6 +369,8 @@ def generate_command(
                 'max_token_per_leaf_module': max_token_per_leaf_module if max_token_per_leaf_module is not None else config.max_token_per_leaf_module,
                 # Max depth setting (runtime override takes precedence)
                 'max_depth': max_depth if max_depth is not None else config.max_depth,
+                # Gitignore setting (runtime override takes precedence)
+                'respect_gitignore': respect_gitignore if respect_gitignore is not None else config.respect_gitignore,
             },
             verbose=verbose,
             generate_html=github_pages

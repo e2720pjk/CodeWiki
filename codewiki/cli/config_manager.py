@@ -92,7 +92,8 @@ class ConfigManager:
         max_tokens: Optional[int] = None,
         max_token_per_module: Optional[int] = None,
         max_token_per_leaf_module: Optional[int] = None,
-        max_depth: Optional[int] = None
+        max_depth: Optional[int] = None,
+        respect_gitignore: Optional[bool] = None,
     ):
         """
         Save configuration to file and keyring.
@@ -108,6 +109,7 @@ class ConfigManager:
             max_token_per_module: Maximum tokens per module for clustering
             max_token_per_leaf_module: Maximum tokens per leaf module
             max_depth: Maximum depth for hierarchical decomposition
+            respect_gitignore: Respect .gitignore patterns during analysis
         """
         # Ensure config directory exists
         try:
@@ -149,7 +151,9 @@ class ConfigManager:
             self._config.max_token_per_leaf_module = max_token_per_leaf_module
         if max_depth is not None:
             self._config.max_depth = max_depth
-        
+        if respect_gitignore is not None:
+            self._config.respect_gitignore = respect_gitignore
+
         # Validate configuration (only if base fields are set)
         if self._config.base_url and self._config.main_model and self._config.cluster_model:
             self._config.validate()

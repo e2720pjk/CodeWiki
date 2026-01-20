@@ -108,8 +108,8 @@ codewiki config set \
 # Configure max token settings
 codewiki config set --max-tokens 32768 --max-token-per-module 36369 --max-token-per-leaf-module 16000
 
-# Configure max depth for hierarchical decomposition
-codewiki config set --max-depth 3
+# Configure max depth for hierarchical decomposition and .gitignore support
+codewiki config set --max-depth 3 --respect-gitignore
 
 # Show current configuration
 codewiki config show
@@ -137,7 +137,7 @@ codewiki generate --github-pages
 codewiki generate --verbose
 
 # Full-featured generation
-codewiki generate --create-branch --github-pages --verbose
+codewiki generate --create-branch --github-pages --verbose --respect-gitignore
 ```
 
 ### Customization Options
@@ -145,8 +145,8 @@ codewiki generate --create-branch --github-pages --verbose
 CodeWiki supports customization for language-specific projects and documentation styles:
 
 ```bash
-# C# project: only analyze .cs files, exclude test directories
-codewiki generate --include "*.cs" --exclude "Tests,Specs,*.test.cs"
+# C# project: only analyze .cs files, exclude test directories, respect .gitignore
+codewiki generate --include "*.cs" --exclude "Tests,Specs,*.test.cs" --respect-gitignore
 
 # Focus on specific modules with architecture-style docs
 codewiki generate --focus "src/core,src/api" --doc-type architecture
@@ -157,7 +157,7 @@ codewiki generate --instructions "Focus on public APIs and include usage example
 
 #### Pattern Behavior (Important!)
 
-- **`--include`**: When specified, **ONLY** these patterns are used (replaces defaults completely)
+- **`--include`**: When specified, **ONLY** these patterns are included from the remaining files (applied after exclusion)
   - Example: `--include "*.cs"` will analyze ONLY `.cs` files
   - If omitted, all supported file types are analyzed
   - Supports glob patterns: `*.py`, `src/**/*.ts`, `*.{js,jsx}`
@@ -169,6 +169,14 @@ codewiki generate --instructions "Focus on public APIs and include usage example
     - Exact names: `Tests`, `.env`, `config.local`
     - Glob patterns: `*.test.js`, `*_test.py`, `*.min.*`
     - Directory patterns: `build/`, `dist/`, `coverage/`
+
+- **`--respect-gitignore`**: Respect `.gitignore` patterns
+  - **Hybrid**: Uses `git check-ignore` for full recursive accuracy, falls back to pathspec if git unavailable
+  - **Processing Logic**:
+    1. **Git Check**: If matched by `.gitignore` → **Excluded**
+    2. **User Exclude**: If matched by CLI `--exclude` → **Excluded** (Overrides Git tracking)
+    3. **Defaults**: If no match above → Check default ignore patterns
+    4. **Inclusion**: Final check against `--include` patterns (if specified)
 
 #### Setting Persistent Defaults
 
@@ -201,6 +209,7 @@ codewiki config agent --clear
 | `--focus` | Modules to document in detail | Standalone option | `src/core,src/api` |
 | `--doc-type` | Documentation style | Standalone option | `api`, `architecture`, `user-guide`, `developer` |
 | `--instructions` | Custom agent instructions | Standalone option | Free-form text |
+
 
 ### Token Settings
 
