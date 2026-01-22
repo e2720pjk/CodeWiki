@@ -185,7 +185,7 @@ class RepoAnalyzer:
                         return True
                     if pattern in path.split("/"):
                         return True
-                return False
+                # Allow default ignore patterns to be checked (remove early return)
 
             if (
                 git_ignored is None
