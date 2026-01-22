@@ -25,6 +25,7 @@ class GenerationOptions:
     github_pages: bool = False
     no_cache: bool = False
     custom_output: Optional[str] = None
+    respect_gitignore: Optional[bool] = None
 
 
 @dataclass

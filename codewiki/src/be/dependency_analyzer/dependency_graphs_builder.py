@@ -44,7 +44,8 @@ class DependencyGraphBuilder:
         parser = DependencyParser(
             self.config.repo_path,
             include_patterns=include_patterns,
-            exclude_patterns=exclude_patterns
+            exclude_patterns=exclude_patterns,
+            respect_gitignore=self.config.respect_gitignore,
         )
 
         filtered_folders = None
