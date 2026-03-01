@@ -134,6 +134,8 @@ Here is list of all potential core components of the repository (It's normal tha
 {potential_core_components}
 </POTENTIAL_CORE_COMPONENTS>
 
+IMPORTANT: You MUST use the EXACT component identifiers shown above, including the full path. DO NOT use shortened names. Example: use "codewiki.cli.adapters.doc_generator.CLIDocumentationGenerator" not "CLIDocumentationGenerator". Shortening names will cause components to be skipped.
+
 Please group the components into groups such that each group is a set of components that are closely related to each other and together they form a module. DO NOT include components that are not essential to the repository.
 Firstly reason about the components and then group them and return the result in the following format:
 <GROUPED_COMPONENTS>
@@ -170,6 +172,8 @@ Here is list of all potential core components of the module {module_name} (It's 
 <POTENTIAL_CORE_COMPONENTS>
 {potential_core_components}
 </POTENTIAL_CORE_COMPONENTS>
+
+IMPORTANT: You MUST use the EXACT component identifiers shown above, including the full path. DO NOT use shortened names. Example: use "codewiki.cli.adapters.doc_generator.CLIDocumentationGenerator" not "CLIDocumentationGenerator". Shortening names will cause components to be skipped.
 
 Please group the components into groups such that each group is a set of components that are closely related to each other and together they form a smaller module. DO NOT include components that are not essential to the module.
 
